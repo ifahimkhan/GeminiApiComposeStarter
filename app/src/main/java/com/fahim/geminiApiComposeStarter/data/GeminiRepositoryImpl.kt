@@ -8,24 +8,68 @@ private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
+    private val apiKey: String,
     modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    private val model = GenerativeModel(
+        modelName = modelName,
+        apiKey = apiKey,
+    )
 
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
-        if (text != null) {
-            Result.success(text)
-        } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
+    override suspend fun generateText(prompt: String): Result<String> {
+        return try {
+            if (apiKey.isBlank()) {
+                return Result.failure(
+                    IllegalStateException("Gemini API key is empty")
+                )
+            }
+
+            if (prompt.isBlank()) {
+                return Result.failure(
+                    IllegalArgumentException("Prompt is empty")
+                )
+            }
+
+            Log.d(TAG, "Sending request to Gemini")
+
+            val response = model.generateContent(prompt)
+
+            val text = response.text?.trim()
+
+            if (!text.isNullOrBlank()) {
+                Log.d(TAG, "Gemini response received")
+                Result.success(text)
+            } else {
+                Log.e(TAG, "Gemini returned an empty response")
+
+                Result.failure(
+                    IllegalStateException("Gemini returned an empty response")
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "Gemini request failed: ${e::class.java.name} | ${e.message}"
+            )
+
+            var cause: Throwable? = e
+            while (cause != null) {
+                Log.e(
+                    TAG,
+                    "CAUSE: ${cause::class.java.name} | ${cause.message}"
+                )
+                cause = cause.cause
+            }
+
+            Result.failure(
+                Exception(
+                    "${e::class.simpleName}: ${e.message ?: "Unknown error"}",
+                    e
+                )
+            )
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
-        Result.failure(e)
     }
 }
