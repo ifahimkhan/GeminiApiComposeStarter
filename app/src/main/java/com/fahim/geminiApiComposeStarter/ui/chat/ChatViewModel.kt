@@ -18,27 +18,38 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    fun onPromptChange(value: String) {
-        _uiState.update { it.copy(prompt = value, promptError = null) }
-    }
-
-    fun onSend() {
-        val prompt = _uiState.value.prompt.trim()
-        if (prompt.isEmpty()) {
-            _uiState.update { it.copy(promptError = PromptError.EMPTY) }
-            return
+    fun sendMessage(text: String) {
+        if (text.isBlank()) return
+        
+        val userMessage = ChatMessage(text = text, isUser = true)
+        _uiState.update { 
+            it.copy(
+                messages = it.messages + userMessage,
+                isLoading = true,
+                errorMessage = null
+            )
         }
+
         if (!hasApiKey) {
-            _uiState.update { it.copy(errorMessage = MISSING_API_KEY_MESSAGE) }
+            _uiState.update { 
+                it.copy(
+                    isLoading = false,
+                    errorMessage = MISSING_API_KEY_MESSAGE
+                ) 
+            }
             return
         }
-        if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
         viewModelScope.launch {
-            repository.generateText(prompt).fold(
-                onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+            repository.generateText(text).fold(
+                onSuccess = { response ->
+                    val geminiMessage = ChatMessage(text = response, isUser = false)
+                    _uiState.update { 
+                        it.copy(
+                            messages = it.messages + geminiMessage,
+                            isLoading = false
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
