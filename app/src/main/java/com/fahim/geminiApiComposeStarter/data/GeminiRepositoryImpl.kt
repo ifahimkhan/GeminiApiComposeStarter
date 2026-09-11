@@ -3,6 +3,8 @@ package com.fahim.geminiApiComposeStarter.data
 import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
@@ -27,5 +29,9 @@ class GeminiRepositoryImpl(
     } catch (e: Exception) {
         Log.e(TAG, "generateContent failed", e)
         Result.failure(e)
+    }
+
+    override fun generateTextStreaming(prompt: String): Flow<String> {
+        return model.generateContentStream(prompt).map { it.text ?: "" }
     }
 }
