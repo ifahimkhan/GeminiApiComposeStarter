@@ -1,7 +1,27 @@
 <resources>
     <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="enter_your_prompt_here">Message</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
+    <string name="response_placeholder">Ask anything to start the conversation.</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="chat_history">Chat history</string>
+    <string name="recents">Recents</string>
+    <string name="new_chat">New chat</string>
+    <string name="gemini_thinking">Gemini is thinking</string>
+    <string name="voice_input">Mic</string>
+    <string name="audio_mode">Audio</string>
+    <string name="feature_not_implemented">UI only for now</string>
+    <string name="close_chat_history">Close chat history</string>
+    <string name="current_conversation">Current conversation</string>
+    <string name="audio_mode_soon">Audio mode, coming soon</string>
+    <string name="voice_input_soon">Microphone, coming soon</string>
+    <string name="suggestion_write">Write a message</string>
+    <string name="suggestion_write_detail">find the right words</string>
+    <string name="suggestion_write_prompt">Help me write a thoughtful thank-you message.</string>
+    <string name="suggestion_explain">Explain something</string>
+    <string name="suggestion_explain_detail">make the complex simple</string>
+    <string name="suggestion_explain_prompt">Explain how artificial intelligence works in simple terms.</string>
+    <string name="suggestion_ideas">Brainstorm ideas</string>
+    <string name="suggestion_ideas_detail">start with a fresh thought</string>
+    <string name="suggestion_ideas_prompt">Suggest some creative ideas for a weekend project.</string>
 </resources>

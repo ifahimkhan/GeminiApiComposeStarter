@@ -5,12 +5,11 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
-val localProperties = Properties().apply {
+val localProperties = Properties().also { props ->
     val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+    if (file.exists()) file.inputStream().use { props.load(it) }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -27,11 +26,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField(
-            "String",
-            "GEMINI_API_KEY",
-            "\"" + geminiApiKey.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-        )
+        val geminiKey = localProperties.getProperty("GEMINI_API_KEY", "")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
     }
 
     buildTypes {
@@ -54,6 +50,8 @@ android {
 }
 
 dependencies {
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.compose.material3:material3-window-size-class")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -67,6 +65,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
