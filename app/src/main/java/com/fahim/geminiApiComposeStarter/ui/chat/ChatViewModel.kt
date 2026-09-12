@@ -53,29 +53,54 @@ class ChatViewModel(
             )
         }
         viewModelScope.launch {
-            repository.generateText(prompt, history).fold(
-                onSuccess = { text ->
-                    val geminiMessage = ChatMessage(
-                        id = nextMessageId++,
-                        text = text,
-                        author = ChatAuthor.GEMINI,
+            var streamedAnyText = false
+            var failed = false
+            val geminiMessageId = nextMessageId++
+
+            repository.generateTextStream(prompt, history).collect { result ->
+                result.fold(
+                    onSuccess = { chunk ->
+                        streamedAnyText = true
+                        _uiState.update { state ->
+                            val existingMessage = state.messages.firstOrNull { it.id == geminiMessageId }
+                            val messages = if (existingMessage == null) {
+                                state.messages + ChatMessage(
+                                    id = geminiMessageId,
+                                    text = chunk,
+                                    author = ChatAuthor.GEMINI,
+                                )
+                            } else {
+                                state.messages.map { message ->
+                                    if (message.id == geminiMessageId) {
+                                        message.copy(text = message.text + chunk)
+                                    } else {
+                                        message
+                                    }
+                                }
+                            }
+                            state.copy(messages = messages)
+                        }
+                    },
+                    onFailure = { error ->
+                        failed = true
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = error.message ?: "Gemini request failed.",
+                            )
+                        }
+                    },
+                )
+            }
+
+            if (!failed) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = if (streamedAnyText) null else "Empty response from Gemini",
                     )
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            messages = it.messages + geminiMessage,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
-                        )
-                    }
-                },
-            )
+                }
+            }
         }
     }
 
