@@ -3,6 +3,8 @@ package com.fahim.geminiApiComposeStarter.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.fahim.geminiApiComposeStarter.data.ConversationMessage
+import com.fahim.geminiApiComposeStarter.data.ConversationRole
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +19,7 @@ class ChatViewModel(
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+    private var nextMessageId = 0L
 
     fun onPromptChange(value: String) {
         _uiState.update { it.copy(prompt = value, promptError = null) }
@@ -34,11 +37,35 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        val history = _uiState.value.messages.map { it.toConversationMessage() }
+        val userMessage = ChatMessage(
+            id = nextMessageId++,
+            text = prompt,
+            author = ChatAuthor.USER,
+        )
+        _uiState.update {
+            it.copy(
+                prompt = "",
+                messages = it.messages + userMessage,
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+            )
+        }
         viewModelScope.launch {
-            repository.generateText(prompt).fold(
+            repository.generateText(prompt, history).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    val geminiMessage = ChatMessage(
+                        id = nextMessageId++,
+                        text = text,
+                        author = ChatAuthor.GEMINI,
+                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            messages = it.messages + geminiMessage,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
@@ -51,6 +78,14 @@ class ChatViewModel(
             )
         }
     }
+
+    private fun ChatMessage.toConversationMessage(): ConversationMessage = ConversationMessage(
+        role = when (author) {
+            ChatAuthor.USER -> ConversationRole.USER
+            ChatAuthor.GEMINI -> ConversationRole.MODEL
+        },
+        text = text,
+    )
 
     companion object {
         const val MISSING_API_KEY_MESSAGE =
