@@ -41,6 +41,8 @@ The main objectives achieved include:
 
 ## UI Showcase
 
+>All screenshots in screenshots folder as well
+
 ### Main Welcome Screen
 
 ![Main Welcome Screen](screenshots/main-chat.jpg)
@@ -76,7 +78,7 @@ The main objectives achieved include:
 ![Error State](screenshots/error-state.jpg)
 
 > Snackbar notification with a "Retry" button after a failed request.
-
+ 
 ---
 
 ## Technology Stack
@@ -186,19 +188,6 @@ While this setup raises the bar significantly, no client-side secret is 100% saf
 ```bash
 ./gradlew :app:connectedDebugAndroidTest
 ```
-
----
-
-## Screenshot Instructions
-Create a `screenshots/` directory in the repository root and place your rendered screenshots there using the following filenames:
-* `main-chat.jpg`
-* `chat-conversation.jpg`
-* `loading-state.jpg`
-* `error-state.jpg`
-* `voice-input.jpg`
-* `dark-mode.jpg`
-
----
 
 ## Conclusion
 This enhanced application demonstrates a production-ready implementation of a generative AI interface. By combining **Jetpack Compose** for a modern UI, **Room/DataStore** for reliable persistence, and **Android Keystore** for security, it provides a seamless and secure user experience that satisfies all requirements of the Lab Assignment.
