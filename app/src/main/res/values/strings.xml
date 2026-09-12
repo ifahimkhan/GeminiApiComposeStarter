@@ -1,7 +1,47 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
+
+    <string name="app_name">Gemini Chat</string>
+
+    <!-- Kept for compatibility with the original starter. -->
     <string name="enter_your_prompt_here">Enter your prompt here</string>
-    <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+
+    <string name="chat_title">Gemini Chat</string>
+    <string name="chat_subtitle">Compose • Room • Voice • Secure key storage</string>
+
+    <string name="prompt_label">Ask Gemini…</string>
+    <string name="prompt_empty">Type a message first.</string>
+
+    <string name="send">Send</string>
+    <string name="voice_input">Voice input</string>
+    <string name="listening_hint">Speak your message</string>
+
+    <string name="clear_history">Delete current chat</string>
+    <string name="settings">Settings</string>
+    <string name="open_chat_history">Open chat history</string>
+
+    <string name="conversations">Conversations</string>
+    <string name="new_chat">New chat</string>
+    <string name="delete_chat">Delete chat</string>
+    <string name="no_saved_chats">No saved chats yet.</string>
+
+    <string name="empty_history_title">Start a new conversation</string>
+    <string name="empty_history_body">Type a message below or use the microphone.</string>
+
+    <string name="you_name">You</string>
+    <string name="gemini_name">Gemini</string>
+    <string name="gemini_thinking">Gemini is thinking…</string>
+
+    <string name="copy">Copy</string>
+    <string name="copied">Copied to clipboard</string>
+    <string name="retry">Retry</string>
+    <string name="dismiss">Dismiss</string>
+
+    <string name="settings_title">Chat settings</string>
+    <string name="settings_explanation">Your display name is saved locally using Preferences DataStore.</string>
+    <string name="display_name_label">Display name</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+
 </resources>

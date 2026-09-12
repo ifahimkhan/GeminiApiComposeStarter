@@ -1,31 +1,57 @@
 package com.fahim.geminiApiComposeStarter.data
 
-import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
 
-private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-3.6-flash"
-
+/**
+ * Gemini implementation that reads the decrypted key only when a request begins.
+ *
+ * The real API key is never logged, toasted, displayed, or written as plaintext.
+ */
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val apiKeyProvider: () -> String?,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    override suspend fun generateText(prompt: String): Result<String> {
+        return try {
+            val apiKey = apiKeyProvider()
+                ?.trim()
+                .orEmpty()
 
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
-        if (text != null) {
-            Result.success(text)
-        } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
+            if (apiKey.isBlank()) {
+                return Result.failure(
+                    IllegalStateException(
+                        "GEMINI_API_KEY is unavailable."
+                    )
+                )
+            }
+
+            val model = GenerativeModel(
+                modelName = modelName,
+                apiKey = apiKey,
+            )
+
+            val response = model.generateContent(prompt)
+            val text = response.text
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+
+            if (text != null) {
+                Result.success(text)
+            } else {
+                Result.failure(
+                    IllegalStateException("Empty response from Gemini")
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Result.failure(error)
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
-        Result.failure(e)
+    }
+
+    companion object {
+        private const val DEFAULT_MODEL = "gemini-3.6-flash"
     }
 }
