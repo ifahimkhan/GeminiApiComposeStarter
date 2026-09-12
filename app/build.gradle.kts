@@ -12,6 +12,12 @@ val localProperties = Properties().apply {
     }
 }
 
+val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY")
+    ?: System.getenv("GEMINI_API_KEY")
+    ?: ""
+
+fun String.asBuildConfigString(): String = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
     compileSdk {
@@ -31,18 +37,18 @@ android {
         buildConfigField(
             "String",
             "GEMINI_API_KEY",
-            "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"",
+            geminiApiKey.asBuildConfigString(),
         )
     }
 
     buildTypes {
         release {
             optimization {
-                enable = false
-                isMinifyEnabled = false
+                enable = true
+                isMinifyEnabled = true
                 proguardFiles(
                     getDefaultProguardFile("proguard-android-optimize.txt"),
-                    "proguard-rules.pro"
+                    "proguard-rules.pro",
                 )
             }
         }
@@ -56,25 +62,6 @@ android {
         buildConfig = true
     }
 }
-
-//dependencies {
-//    implementation(platform(libs.androidx.compose.bom))
-//    implementation(libs.androidx.activity.compose)
-//    implementation(libs.androidx.compose.material3)
-//    implementation(libs.androidx.compose.ui)
-//    implementation(libs.androidx.compose.ui.graphics)
-//    implementation(libs.androidx.compose.ui.tooling.preview)
-//    implementation(libs.androidx.core.ktx)
-//    implementation(libs.androidx.lifecycle.runtime.ktx)
-//    testImplementation(libs.junit)
-//    androidTestImplementation(platform(libs.androidx.compose.bom))
-//    androidTestImplementation(libs.androlibs.androidx.composeidx.compose.ui.test.junit4)
-//    androidTestImplementation(libs.androidx.espresso.core)
-//    androidTestImplementation(libs.androidx.junit)
-//    debugImplementation(libs.androidx.compose.ui.test.manifest)
-//    debugImplementation(libs.androidx.compose.ui.tooling)
-//}
-
 
 dependencies {
     implementation(libs.androidx.core.ktx)
