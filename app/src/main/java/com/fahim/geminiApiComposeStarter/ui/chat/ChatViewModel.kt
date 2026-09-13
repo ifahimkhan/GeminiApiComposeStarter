@@ -1,3 +1,4 @@
+
 package com.fahim.geminiApiComposeStarter.ui.chat
 
 import androidx.lifecycle.ViewModel
@@ -18,33 +19,76 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private var nextMessageId = 0L
+
     fun onPromptChange(value: String) {
-        _uiState.update { it.copy(prompt = value, promptError = null) }
+        _uiState.update {
+            it.copy(
+                prompt = value,
+                promptError = null,
+            )
+        }
     }
 
     fun onSend() {
         val prompt = _uiState.value.prompt.trim()
+
         if (prompt.isEmpty()) {
-            _uiState.update { it.copy(promptError = PromptError.EMPTY) }
+            _uiState.update {
+                it.copy(promptError = PromptError.EMPTY)
+            }
             return
         }
+
         if (!hasApiKey) {
-            _uiState.update { it.copy(errorMessage = MISSING_API_KEY_MESSAGE) }
+            _uiState.update {
+                it.copy(errorMessage = MISSING_API_KEY_MESSAGE)
+            }
             return
         }
+
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        // Add the user's message immediately.
+        val userMessage = ChatMessage(
+            id = nextMessageId++,
+            text = prompt,
+            isFromUser = true,
+        )
+
+        _uiState.update {
+            it.copy(
+                prompt = "",
+                messages = it.messages + userMessage,
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+            )
+        }
+
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    val geminiMessage = ChatMessage(
+                        id = nextMessageId++,
+                        text = text,
+                        isFromUser = false,
+                    )
+
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            response = text,
+                            messages = it.messages + geminiMessage,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
+                            errorMessage =
+                                error.message ?: "Something went wrong",
                         )
                     }
                 },
@@ -56,11 +100,15 @@ class ChatViewModel(
         const val MISSING_API_KEY_MESSAGE =
             "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
 
-        fun factory(repository: GeminiRepository, hasApiKey: Boolean) =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ChatViewModel(repository, hasApiKey) as T
-            }
+        fun factory(
+            repository: GeminiRepository,
+            hasApiKey: Boolean,
+        ) = object : ViewModelProvider.Factory {
+
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(
+                modelClass: Class<T>,
+            ): T = ChatViewModel(repository, hasApiKey) as T
+        }
     }
 }
