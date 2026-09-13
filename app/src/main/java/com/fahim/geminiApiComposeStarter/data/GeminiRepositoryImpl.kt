@@ -13,9 +13,11 @@ import com.google.ai.client.generativeai.type.ServerException
 import com.google.ai.client.generativeai.type.UnsupportedUserLocationException
 import com.google.ai.client.generativeai.type.content
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 
 private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
@@ -42,7 +44,7 @@ class GeminiRepositoryImpl(
         if (e is CancellationException) throw e
         Log.e(TAG, "generateContent failed", e)
         emit(Result.failure(IllegalStateException(e.toUserMessage(), e)))
-    }
+    }.flowOn(Dispatchers.IO)
 
     private fun ConversationMessage.toContent(): Content = content(role.toGeminiRole()) {
         text(this@toContent.text)

@@ -3,7 +3,8 @@ package com.fahim.geminiApiComposeStarter.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.fahim.geminiApiComposeStarter.data.ChatStore
+import com.fahim.geminiApiComposeStarter.data.ChatDefaults
+import com.fahim.geminiApiComposeStarter.data.ChatStorage
 import com.fahim.geminiApiComposeStarter.data.ConversationMessage
 import com.fahim.geminiApiComposeStarter.data.ConversationRole
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
@@ -17,44 +18,56 @@ import kotlinx.coroutines.launch
 
 class ChatViewModel(
     private val repository: GeminiRepository,
-    private val chatStore: ChatStore,
+    private val chatStorage: ChatStorage,
     private val hasApiKey: Boolean,
 ) : ViewModel() {
 
-    private var storedChats: List<StoredChat> = chatStore.loadChats().ifEmpty { listOf(ChatStore.newChat()) }
-    private val initialActiveChatId = chatStore.loadActiveChatId()
-        ?.takeIf { activeId -> storedChats.any { it.id == activeId } }
-        ?: storedChats.first().id
-    private val _uiState = MutableStateFlow(storedChats.toUiState(initialActiveChatId))
+    private var storedChats: List<StoredChat> = emptyList()
+    private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
-    private var nextMessageId = storedChats.maxOfOrNull { chat ->
-        chat.messages.maxOfOrNull { message -> message.id } ?: -1L
-    }?.plus(1L) ?: 0L
+    private var nextMessageId = 0L
+    private var isInitialized = false
 
     init {
-        saveChats()
+        viewModelScope.launch {
+            storedChats = chatStorage.loadChats().ifEmpty { listOf(ChatDefaults.newChat()) }
+            val activeChatId = chatStorage.loadActiveChatId()
+                ?.takeIf { activeId -> storedChats.any { it.id == activeId } }
+                ?: storedChats.first().id
+            nextMessageId = storedChats.maxOfOrNull { chat ->
+                chat.messages.maxOfOrNull { message -> message.id } ?: -1L
+            }?.plus(1L) ?: 0L
+            _uiState.value = storedChats.toUiState(activeChatId)
+            isInitialized = true
+            saveChats()
+        }
     }
 
     fun onPromptChange(value: String) {
         _uiState.update { it.copy(prompt = value, promptError = null) }
     }
 
+    fun showError(message: String) {
+        _uiState.update { it.copy(errorMessage = message) }
+    }
+
     fun onNewChat() {
-        if (_uiState.value.isLoading) return
-        val newChat = ChatStore.newChat()
+        if (!isInitialized || _uiState.value.isLoading) return
+        val newChat = ChatDefaults.newChat()
         storedChats = listOf(newChat) + storedChats
         _uiState.value = storedChats.toUiState(newChat.id)
         saveChats()
     }
 
     fun onSelectChat(chatId: String) {
-        if (_uiState.value.isLoading || chatId == _uiState.value.activeChatId) return
+        if (!isInitialized || _uiState.value.isLoading || chatId == _uiState.value.activeChatId) return
         if (storedChats.none { it.id == chatId }) return
         _uiState.value = storedChats.toUiState(chatId)
         saveChats()
     }
 
     fun onSend() {
+        if (!isInitialized) return
         val prompt = _uiState.value.prompt.trim()
         if (prompt.isEmpty()) {
             _uiState.update { it.copy(promptError = PromptError.EMPTY) }
@@ -140,9 +153,9 @@ class ChatViewModel(
     private fun persistActiveChat() {
         val state = _uiState.value
         val title = storedChats.firstOrNull { it.id == state.activeChatId }?.title
-            ?.takeUnless { it == "New chat" }
+            ?.takeUnless { it == ChatDefaults.NEW_CHAT_TITLE }
             ?: state.messages.firstOrNull { it.author == ChatAuthor.USER }?.text?.toChatTitle()
-            ?: "New chat"
+            ?: ChatDefaults.NEW_CHAT_TITLE
         storedChats = storedChats.map { chat ->
             if (chat.id == state.activeChatId) {
                 chat.copy(
@@ -158,7 +171,9 @@ class ChatViewModel(
     }
 
     private fun saveChats() {
-        chatStore.saveChats(storedChats, _uiState.value.activeChatId)
+        val activeChatId = _uiState.value.activeChatId
+        if (activeChatId.isBlank()) return
+        viewModelScope.launch { chatStorage.saveChats(storedChats, activeChatId) }
     }
 
     private fun ChatMessage.toConversationMessage(): ConversationMessage = ConversationMessage(
@@ -209,11 +224,11 @@ class ChatViewModel(
         const val MISSING_API_KEY_MESSAGE =
             "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
 
-        fun factory(repository: GeminiRepository, chatStore: ChatStore, hasApiKey: Boolean) =
+        fun factory(repository: GeminiRepository, chatStorage: ChatStorage, hasApiKey: Boolean) =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ChatViewModel(repository, chatStore, hasApiKey) as T
+                    ChatViewModel(repository, chatStorage, hasApiKey) as T
             }
     }
 }

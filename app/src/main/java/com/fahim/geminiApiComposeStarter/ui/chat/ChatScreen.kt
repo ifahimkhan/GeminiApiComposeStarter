@@ -1,6 +1,11 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,16 +31,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -62,6 +69,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
@@ -74,16 +82,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownTypography
+import com.mikepenz.markdown.model.markdownPadding
+import com.mikepenz.markdown.model.rememberMarkdownState
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private const val EMPTY_CHAT_MESSAGE = "What should we explore?"
 private const val PROMPT_PLACEHOLDER = "Ask anything"
 private const val EMPTY_FIELD_ERROR = "Field cannot be empty"
 private const val SEND_DESCRIPTION = "Send"
 private const val MENU_DESCRIPTION = "Open menu"
+private const val VOICE_INPUT_DESCRIPTION = "Use voice input"
 private const val LIGHT_MODE_DESCRIPTION = "Switch to light mode"
 private const val DARK_MODE_DESCRIPTION = "Switch to dark mode"
 private const val NEW_CHAT_LABEL = "New chat"
+private val SendButtonBlue = Color(0xFF3B82F6)
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
@@ -93,12 +106,37 @@ fun ChatRoute(
     onToggleTheme: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val windowSizeClass = calculateWindowSizeClass(LocalContext.current as Activity)
+    val context = LocalContext.current
+    val windowSizeClass = calculateWindowSizeClass(context as Activity)
+    val voiceInputLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.let(viewModel::onPromptChange)
+        }
+    }
     ChatScreen(
         state = state,
         windowWidthSizeClass = windowSizeClass.widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onVoiceInput = {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                )
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                .putExtra(RecognizerIntent.EXTRA_PROMPT, PROMPT_PLACEHOLDER)
+            try {
+                voiceInputLauncher.launch(intent)
+            } catch (_: ActivityNotFoundException) {
+                viewModel.showError("Speech recognition is not available on this device.")
+            }
+        },
         onNewChat = viewModel::onNewChat,
         onSelectChat = viewModel::onSelectChat,
         darkTheme = darkTheme,
@@ -113,6 +151,7 @@ fun ChatScreen(
     windowWidthSizeClass: WindowWidthSizeClass,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoiceInput: () -> Unit,
     onNewChat: () -> Unit,
     onSelectChat: (String) -> Unit,
     darkTheme: Boolean,
@@ -159,6 +198,7 @@ fun ChatScreen(
                 windowWidthSizeClass = windowWidthSizeClass,
                 onPromptChange = onPromptChange,
                 onSend = onSend,
+                onVoiceInput = onVoiceInput,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -248,6 +288,7 @@ private fun ChatContent(
     windowWidthSizeClass: WindowWidthSizeClass,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoiceInput: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -326,6 +367,7 @@ private fun ChatContent(
                 horizontalPadding = horizontalPadding,
                 onPromptChange = onPromptChange,
                 onSend = onSend,
+                onVoiceInput = onVoiceInput,
             )
         }
     }
@@ -370,36 +412,73 @@ private fun ChatBubble(
 
 @Composable
 private fun GeminiMarkdown(content: String, modifier: Modifier = Modifier) {
+    val bodyStyle = MaterialTheme.typography.bodyLarge.copy(
+        fontWeight = FontWeight.Normal,
+        lineHeight = 25.sp,
+        letterSpacing = 0.1.sp,
+    )
+    val markdownState = rememberMarkdownState(content = content, retainState = true)
+
     Markdown(
-        content = content,
+        markdownState = markdownState,
         modifier = modifier.fillMaxWidth(),
+        padding = markdownPadding(
+            block = 8.dp,
+            list = 6.dp,
+            listItemTop = 3.dp,
+            listItemBottom = 3.dp,
+            listIndent = 14.dp,
+            codeBlock = PaddingValues(12.dp),
+        ),
         typography = markdownTypography(
-            h1 = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
-            h2 = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 24.sp),
-            h3 = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp, lineHeight = 23.sp),
+            h1 = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 21.sp,
+                lineHeight = 29.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            h2 = MaterialTheme.typography.titleMedium.copy(
+                fontSize = 19.sp,
+                lineHeight = 27.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            h3 = MaterialTheme.typography.titleSmall.copy(
+                fontSize = 17.sp,
+                lineHeight = 25.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
             h4 = MaterialTheme.typography.bodyLarge.copy(
                 fontSize = 16.sp,
-                lineHeight = 22.sp,
-                fontWeight = FontWeight.Normal,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.SemiBold,
             ),
             h5 = MaterialTheme.typography.bodyMedium.copy(
                 fontSize = 15.sp,
-                lineHeight = 21.sp,
-                fontWeight = FontWeight.Normal,
+                lineHeight = 23.sp,
+                fontWeight = FontWeight.SemiBold,
             ),
             h6 = MaterialTheme.typography.bodySmall.copy(
                 fontSize = 14.sp,
-                lineHeight = 20.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            text = bodyStyle,
+            paragraph = bodyStyle,
+            ordered = bodyStyle,
+            bullet = bodyStyle,
+            list = bodyStyle,
+            code = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Normal,
+                lineHeight = 22.sp,
+            ),
+            inlineCode = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Normal,
             ),
-            text = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
-            paragraph = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
-            ordered = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
-            bullet = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
-            list = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
-            code = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal),
-            inlineCode = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal),
-            table = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal),
+            table = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Normal,
+                lineHeight = 22.sp,
+            ),
         ),
     )
 }
@@ -478,6 +557,7 @@ private fun PromptBar(
     horizontalPadding: Dp,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoiceInput: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -493,7 +573,7 @@ private fun PromptBar(
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
         ) {
-            Column {
+            Column(modifier = Modifier.padding(8.dp)) {
                 OutlinedTextField(
                     value = prompt,
                     onValueChange = onPromptChange,
@@ -518,27 +598,44 @@ private fun PromptBar(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
                         disabledContainerColor = Color.Transparent,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent,
                     ),
                 )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 6.dp, end = 8.dp, bottom = 6.dp),
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Spacer(modifier = Modifier.weight(1f))
                     IconButton(
-                        onClick = onSend,
+                        onClick = onVoiceInput,
                         enabled = enabled,
                         modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            imageVector = Icons.Filled.Mic,
+                            contentDescription = VOICE_INPUT_DESCRIPTION,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f),
+                        )
+                    }
+                    IconButton(
+                        onClick = onSend,
+                        enabled = enabled,
+                        modifier = Modifier.size(40.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = SendButtonBlue,
+                            contentColor = Color.White,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = SEND_DESCRIPTION,
-                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -564,6 +661,7 @@ private fun ChatScreenPreview() {
                 .widthSizeClass,
             onPromptChange = {},
             onSend = {},
+            onVoiceInput = {},
             onNewChat = {},
             onSelectChat = {},
             darkTheme = false,
