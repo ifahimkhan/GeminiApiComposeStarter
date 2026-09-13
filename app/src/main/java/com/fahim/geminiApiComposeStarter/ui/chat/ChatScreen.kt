@@ -40,6 +40,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
@@ -83,24 +86,69 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import android.view.HapticFeedbackConstants
+import android.os.Vibrator
+import android.os.VibrationEffect
+import android.os.Build
+import androidx.compose.ui.platform.LocalView
 
-// ── Colour palette (matches main dark theme) ─────────────────────────────────
-private val SidebarBg        = Color(0xFF171717)   // ChatGPT sidebar colour
-private val SidebarItemHover = Color(0xFF212121)
-private val SidebarDivider   = Color(0xFF2D2D2D)
-private val SidebarText      = Color(0xFFECECEC)
-private val SidebarSubText   = Color(0xFF8E8E8E)
-private val BtnGrey          = Color(0xFF2F2F2F)
+// ── Colour palette (theme-aware) ──────────────────────────────────────────────
+private val SidebarBg        @Composable get() = MaterialTheme.colorScheme.surfaceContainer
+private val SidebarItemHover @Composable get() = MaterialTheme.colorScheme.surfaceContainerHighest
+private val SidebarDivider   @Composable get() = MaterialTheme.colorScheme.outlineVariant
+private val SidebarText      @Composable get() = MaterialTheme.colorScheme.onSurface
+private val SidebarSubText   @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+private val BtnGrey          @Composable get() = MaterialTheme.colorScheme.surfaceContainerHighest
+
+/** Short, clearly-felt vibration — works on Samsung/Pixel/OnePlus alike. */
+@Composable
+private fun rememberHapticTap(): () -> Unit {
+    val context = LocalContext.current
+    return remember {
+        {
+            @Suppress("DEPRECATION")
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE)
+                    as android.os.VibratorManager).defaultVibrator
+            } else {
+                context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(40)
+            }
+        }
+    }
+}
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    ChatScreen(state, viewModel::onPromptChange, viewModel::onSend,
-        autoFocus = state.openKeyboard, onNewChat = viewModel::newChat,
-        onSelectChat = viewModel::selectChat, onDeleteChat = viewModel::deleteChat,
-        onSaveSettings = viewModel::saveSettings,
-        onAttachmentsAdded = viewModel::addAttachments,
-        onAttachmentRemoved = viewModel::removeAttachment)
+    // Wrap the entire composition with the theme so toggling dark/light applies immediately
+    com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme(
+        darkTheme = state.darkMode,
+        dynamicColor = false
+    ) {
+        ChatScreen(
+            state = state,
+            onPromptChange = viewModel::onPromptChange,
+            onSend = viewModel::onSend,
+            autoFocus = state.openKeyboard,
+            onNewChat = viewModel::newChat,
+            onSelectChat = viewModel::selectChat,
+            onDeleteChat = viewModel::deleteChat,
+            onSaveSettings = viewModel::saveSettings,
+            onAttachmentsAdded = viewModel::addAttachments,
+            onAttachmentRemoved = viewModel::removeAttachment,
+            onRegenerate = viewModel::onRegenerateLast,
+            onStopGenerating = viewModel::stopGenerating
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
@@ -113,10 +161,13 @@ fun ChatScreen(
     onNewChat: () -> Unit = {},
     onSelectChat: (String) -> Unit = {},
     onDeleteChat: (String) -> Unit = {},
-    onSaveSettings: (String?, Boolean, String) -> Unit = { _, _, _ -> },
+    onSaveSettings: (String?, Boolean, String, Boolean) -> Unit = { _, _, _, _ -> },
     onAttachmentsAdded: (List<PendingAttachment>) -> Unit = {},
     onAttachmentRemoved: (String) -> Unit = {},
+    onRegenerate: () -> Unit = {},
+    onStopGenerating: () -> Unit = {},
 ) {
+    val context = LocalContext.current
     var settingsOpen by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val windowClass = remember(configuration.screenWidthDp, configuration.screenHeightDp) {
@@ -145,21 +196,32 @@ fun ChatScreen(
     }
     BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = true,
-        scrimColor = Color.Black.copy(alpha = 0.6f),
-        drawerContent = {
-            ChatPanel(
-                state = state,
-                onClose = { scope.launch { drawerState.close() } },
-                onNewChat = { onNewChat(); scope.launch { drawerState.close() } },
-                onSelectChat = { onSelectChat(it); scope.launch { drawerState.close() } },
-                onDeleteChat = onDeleteChat,
-                onSettings = { scope.launch { drawerState.close() }; settingsOpen = true },
-            )
-        },
-    ) {
+    var isSearchOpen by remember { mutableStateOf(false) }
+    var targetMessageId by remember { mutableStateOf<Long?>(null) }
+    var searchQueryHighlight by remember { mutableStateOf<String?>(null) }
+    val haptic = rememberHapticTap()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = true,
+            scrimColor = Color.Black.copy(alpha = 0.6f),
+            drawerContent = {
+                ChatPanel(
+                    state = state,
+                    onClose = { scope.launch { drawerState.close() } },
+                    onOpenSearch = {
+                        haptic()
+                        scope.launch { drawerState.close() }
+                        isSearchOpen = true
+                    },
+                    onNewChat = { targetMessageId = null; searchQueryHighlight = null; onNewChat(); scope.launch { drawerState.close() } },
+                    onSelectChat = { targetMessageId = null; searchQueryHighlight = null; onSelectChat(it); scope.launch { drawerState.close() } },
+                    onDeleteChat = onDeleteChat,
+                    onSettings = { scope.launch { drawerState.close() }; settingsOpen = true },
+                )
+            },
+        ) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -172,13 +234,37 @@ fun ChatScreen(
                         }
                     },
                     actions = {
-                        // Use Image so the actual PNG renders in full colour, not as a tinted silhouette
+                        if (state.messages.isNotEmpty()) {
+                            IconButton(onClick = {
+                                val markdownText = state.messages.joinToString("\n\n") { msg ->
+                                    if (msg.role == ChatRole.USER) "### You\n${msg.text}"
+                                    else "### Gemini\n${msg.text}"
+                                }
+                                val file = File(context.cacheDir, "chat_export.md")
+                                file.writeText(markdownText)
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.attachments", file)
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/markdown"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Export Chat"))
+                            }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_share_box),
+                                    contentDescription = "Export Chat",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        // Material Settings icon — crisp in both dark and light mode
                         IconButton(onClick = { settingsOpen = true }) {
-                            Image(
-                                painter = painterResource(R.drawable.settings),
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
                                 contentDescription = "Settings",
-                                modifier = Modifier.size(26.dp),
-                                contentScale = ContentScale.Fit,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     },
@@ -196,26 +282,76 @@ fun ChatScreen(
                     .imePadding(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (state.isRestoring) {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else if (state.messages.isEmpty() && !state.isLoading) {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Icon(painterResource(R.drawable.ic_gemini_mark), null,
-                            Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    if (windowClass.heightSizeClass != WindowHeightSizeClass.Compact) {
-                        Suggestions { prompt ->
-                            onPromptChange(prompt)
-                            focusRequester.requestFocus()
-                            keyboard?.show()
+                AnimatedContent(
+                    targetState = state.activeId,
+                    transitionSpec = {
+                        // Crossfade + subtle upward slide: new content fades/slides up in, old fades out
+                        (fadeIn(animationSpec = tween(320, easing = FastOutSlowInEasing)) +
+                            slideInVertically(
+                                initialOffsetY = { (it * 0.06f).toInt() },
+                                animationSpec = tween(320, easing = FastOutSlowInEasing)
+                            )).togetherWith(
+                            fadeOut(animationSpec = tween(180, easing = LinearOutSlowInEasing))
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = "chatContentSwitch"
+                ) { activeId ->
+                    if (state.isRestoring) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (state.messages.isEmpty() && !state.isLoading) {
+                        Column(
+                            Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.ic_gemini_mark), null,
+                                Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(24.dp))
+                            val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+                            Text(
+                                text = "Hello! How can I help you today?",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontSize = 22.sp / fontScale,
+                                    lineHeight = 28.sp / fontScale
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 24.dp)
+                            )
+                            state.errorMessage?.let { ErrorCard(it, Modifier.padding(horizontal = 16.dp)) }
+                        }
+                    } else {
+                        // activeId captured so MessageList remounts cleanly per chat
+                        key(activeId) {
+                            MessageList(
+                                state = state,
+                                onRegenerate = onRegenerate,
+                                onStopGenerating = onStopGenerating,
+                                targetMessageId = targetMessageId,
+                                searchQueryHighlight = searchQueryHighlight,
+                                onTargetScrolled = {
+                                    scope.launch {
+                                        delay(3000)
+                                        targetMessageId = null
+                                        searchQueryHighlight = null
+                                    }
+                                },
+                                modifier = Modifier.widthIn(max = contentWidth).fillMaxWidth()
+                            )
                         }
                     }
-                    state.errorMessage?.let { ErrorCard(it, Modifier.padding(horizontal = 16.dp)) }
-                } else {
-                    key(state.activeId) {
-                        MessageList(state, Modifier.weight(1f).widthIn(max = contentWidth).fillMaxWidth())
+                }
+                if (!state.isRestoring && state.messages.isEmpty() && !state.isLoading && windowClass.heightSizeClass != WindowHeightSizeClass.Compact) {
+                    Suggestions { prompt ->
+                        onPromptChange(prompt)
+                        focusRequester.requestFocus()
+                        keyboard?.show()
                     }
                 }
                 PromptBar(
@@ -224,6 +360,7 @@ fun ChatScreen(
                     keyboard = keyboard,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onStop = onStopGenerating,
                     onAttachmentsAdded = onAttachmentsAdded,
                     onAttachmentRemoved = onAttachmentRemoved,
                     modifier = Modifier
@@ -234,7 +371,36 @@ fun ChatScreen(
             }
         }
     }
+
+    AnimatedVisibility(
+        visible = isSearchOpen,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = spring(
+                stiffness = Spring.StiffnessMediumLow,
+                dampingRatio = Spring.DampingRatioNoBouncy
+            )
+        ) + fadeIn(animationSpec = tween(300)),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(250)
+        ) + fadeOut(animationSpec = tween(200)),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        FullScreenSearch(
+            state = state,
+            onClose = { isSearchOpen = false },
+            onSelectChat = { id, msgId, query ->
+                isSearchOpen = false
+                targetMessageId = msgId
+                searchQueryHighlight = query
+                onSelectChat(id)
+            }
+        )
+    }
+
     if (settingsOpen) SettingsDialog(state, onSaveSettings, onClose = { settingsOpen = false })
+    }
 }
 
 // ── Suggestions ───────────────────────────────────────────────────────────────
@@ -279,20 +445,121 @@ private fun Suggestions(onSelect: (String) -> Unit) {
 // ── Message list ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun MessageList(state: ChatUiState, modifier: Modifier = Modifier) {
-    val listState = rememberLazyListState()
+private fun MessageList(
+    state: ChatUiState,
+    onRegenerate: () -> Unit,
+    onStopGenerating: () -> Unit,
+    targetMessageId: Long? = null,
+    searchQueryHighlight: String? = null,
+    onTargetScrolled: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val itemCount = state.messages.size + (if (state.isLoading) 1 else 0) + (if (state.errorMessage != null) 1 else 0)
-    LaunchedEffect(state.messages.size, state.isLoading, state.errorMessage) {
-        if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
+
+    // Initial list state — always start at index 0; scroll effects below handle positioning
+    val listState = rememberLazyListState()
+
+    // Check if the user is already near the bottom (within 1 item of the end)
+    val isNearBottom by remember {
+        derivedStateOf {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val total = listState.layoutInfo.totalItemsCount
+            total == 0 || lastVisible >= total - 2
+        }
+    }
+
+    // When opening a chat (activeId changes):
+    //   • If we have a search target → scroll to that message and offset to the matched word
+    //   • Otherwise (history or new chat) → jump to the absolute bottom
+    LaunchedEffect(state.activeId) {
+        if (state.messages.isEmpty()) return@LaunchedEffect
+        if (targetMessageId != null) {
+            // search-navigate: handled by targetMessageId effect below
+            return@LaunchedEffect
+        }
+        // Jump to very bottom: scroll to last index with a huge pixel offset so the
+        // bottom of the item is visible, not just the top.
+        val lastIdx = (state.messages.size - 1).coerceAtLeast(0)
+        listState.scrollToItem(lastIdx, Int.MAX_VALUE)
+    }
+
+    // Scroll to exact search target and position the viewport so the matched word is visible.
+    // After scrolling, calls onTargetScrolled which schedules a 3-second auto-clear of the highlight.
+    LaunchedEffect(targetMessageId, searchQueryHighlight) {
+        val msgId = targetMessageId ?: return@LaunchedEffect
+        if (state.messages.isEmpty()) return@LaunchedEffect
+        val targetIdx = state.messages.indexOfFirst { it.id == msgId }
+        if (targetIdx < 0) return@LaunchedEffect
+        val targetMsg = state.messages[targetIdx]
+        // Estimate pixel offset: count actual newlines + wrapped lines (avg 50 chars/line on phone)
+        val matchIdx = if (!searchQueryHighlight.isNullOrBlank()) {
+            targetMsg.text.indexOf(searchQueryHighlight, ignoreCase = true)
+        } else -1
+        val pixelOffset = if (matchIdx > 0) {
+            val textBefore = targetMsg.text.substring(0, matchIdx)
+            val newlineCount = textBefore.count { it == '\n' }
+            val wrapLines = (textBefore.replace("\n", "").length / 50)
+            val totalLines = newlineCount + wrapLines
+            // Each line ≈ 28px (20sp line height + spacing)
+            (totalLines * 28).coerceAtLeast(0)
+        } else 0
+        listState.animateScrollToItem(targetIdx, pixelOffset)
+        // Signal parent to start the 3-second countdown to clear highlights
+        onTargetScrolled()
+    }
+
+    // Scroll to bottom when a NEW message is added (when not navigating to a search target)
+    LaunchedEffect(state.messages.size, state.isLoading) {
+        if (itemCount > 0 && targetMessageId == null) {
+            val lastIdx = itemCount - 1
+            listState.scrollToItem(lastIdx, Int.MAX_VALUE)
+        }
+    }
+
+    // While streaming the last message, keep scrolling ONLY if user is already at bottom
+    // Uses scrollToItem (instant) to avoid animation-vs-animation jitter
+    LaunchedEffect(state.isLoading) {
+        if (state.isLoading) {
+            while (true) {
+                if (isNearBottom && itemCount > 0) {
+                    listState.scrollToItem(itemCount - 1)
+                }
+                delay(80)
+            }
+        }
     }
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        items(state.messages, key = { it.id }, contentType = { it.role }) { ChatBubble(it) }
+        items(state.messages, key = { it.id }, contentType = { it.role }) { message ->
+            ChatBubble(
+                message = message,
+                onRegenerate = onRegenerate,
+                isTarget = (message.id == targetMessageId),
+                highlightQuery = searchQueryHighlight
+            )
+        }
         if (state.isLoading) item(key = "loading") {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text(stringResource(R.string.gemini_thinking), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(start = 4.dp)
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_gemini_mark),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Gemini is thinking",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White,
+                )
             }
         }
         state.errorMessage?.let { message -> item(key = "error") { ErrorCard(message) } }
@@ -300,26 +567,124 @@ private fun MessageList(state: ChatUiState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage) {
+private fun MessageActions(
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onRegenerate: () -> Unit,
+) {
+    val haptic = rememberHapticTap()
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 8.dp)
+    ) {
+        IconButton(onClick = { haptic(); onCopy() }, modifier = Modifier.size(32.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_clipboard),
+                contentDescription = "Copy",
+                tint = Color(0xFFB4B4B4),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        IconButton(onClick = { haptic(); onShare() }, modifier = Modifier.size(32.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_share_box),
+                contentDescription = "Share",
+                tint = Color(0xFFB4B4B4),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        IconButton(onClick = { haptic(); onRegenerate() }, modifier = Modifier.size(32.dp)) {
+            Icon(
+                painter = painterResource(R.drawable.ic_refresh),
+                contentDescription = "Regenerate",
+                tint = Color(0xFFB4B4B4),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChatBubble(
+    message: ChatMessage,
+    onRegenerate: () -> Unit,
+    isTarget: Boolean = false,
+    highlightQuery: String? = null
+) {
     val isUser = message.role == ChatRole.USER
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
+    val context = LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val timeLabel = remember(message.timestamp) {
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(message.timestamp))
+    }
+    // Highlight stays visible as long as isTarget is true (we never clear targetMessageId after search)
+    val highlightAlpha by animateFloatAsState(
+        targetValue = if (isTarget) 1f else 0f,
+        animationSpec = tween(durationMillis = 600),
+        label = "targetHighlight"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (highlightAlpha > 0.01f) {
+                    Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF10A37F).copy(alpha = 0.22f * highlightAlpha))
+                        .padding(6.dp)
+                } else Modifier
+            ),
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+    ) {
         if (!isUser) {
             Icon(painterResource(R.drawable.ic_gemini_mark), null, Modifier.padding(bottom = 12.dp).size(24.dp))
             when (message.kind) {
-                MessageKind.TEXT -> Box(Modifier.fillMaxWidth()) { ResponseContent(message.text) }
+                MessageKind.TEXT -> {
+                    Box(Modifier.fillMaxWidth()) {
+                        // Always pass highlightQuery when isTarget — keep highlight alive permanently
+                        ResponseContent(message.text, highlightQuery = if (isTarget) highlightQuery else null)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        MessageActions(
+                            onCopy = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(message.text)) },
+                            onShare = {
+                                val sendIntent: Intent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, message.text)
+                                    type = "text/plain"
+                                }
+                                val shareIntent = Intent.createChooser(sendIntent, null)
+                                context.startActivity(shareIntent)
+                            },
+                            onRegenerate = onRegenerate
+                        )
+                        Text(
+                            timeLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF6E6E6E),
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                }
                 MessageKind.IMAGE -> GeneratedImageMessage(message)
             }
         } else {
             Column(
                 modifier = Modifier.widthIn(max = 620.dp).padding(start = 32.dp),
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (message.attachments.isNotEmpty()) {
                     SentAttachmentGallery(message.attachments)
                 }
                 Surface(
-                    color = Color(0xFF253D56),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = RoundedCornerShape(24.dp),
                 ) {
                     SelectionContainer {
@@ -327,9 +692,15 @@ private fun ChatBubble(message: ChatMessage) {
                             message.text,
                             Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }
+                Text(
+                    timeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -464,7 +835,7 @@ private fun VoiceDecibelMeter(
 // ── Transcribing Animation ───────────────────────────────────────────────────
 
 @Composable
-private fun TranscribingAnimation(modifier: Modifier = Modifier) {
+private fun TranscribingAnimation(modifier: Modifier = Modifier, text: String = "Transcribing...") {
     val infiniteTransition = rememberInfiniteTransition(label = "dots")
     val alpha1 by infiniteTransition.animateFloat(0.2f, 1f, infiniteRepeatable(tween(400), RepeatMode.Reverse), label = "d1")
     val alpha2 by infiniteTransition.animateFloat(0.2f, 1f, infiniteRepeatable(tween(400, delayMillis = 150), RepeatMode.Reverse), label = "d2")
@@ -476,7 +847,7 @@ private fun TranscribingAnimation(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
     ) {
         Text(
-            "Transcribing...",
+            text,
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFECECEC), fontWeight = FontWeight.Medium)
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -496,6 +867,7 @@ private fun PromptBar(
     keyboard: androidx.compose.ui.platform.SoftwareKeyboardController?,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onStop: () -> Unit = {},
     onAttachmentsAdded: (List<PendingAttachment>) -> Unit,
     onAttachmentRemoved: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -811,28 +1183,50 @@ private fun PromptBar(
                     }
                 }
 
-                // Send button
-                IconButton(
-                    onClick = onSend,
-                    enabled = (state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !state.isLoading && !state.isRestoring && !isListening,
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Box(
-                        Modifier
-                            .size(30.dp)
-                            .background(
-                                if ((state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !state.isLoading && !isListening) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
+                // Send / Stop button
+                if (state.isLoading) {
+                    // ── Stop generating ──
+                    IconButton(
+                        onClick = onStop,
+                        modifier = Modifier.size(38.dp)
                     ) {
-                        Icon(
-                            painterResource(R.drawable.ic_arrow_up),
-                            stringResource(R.string.send),
-                            Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
+                        Box(
+                            Modifier
+                                .size(26.dp)
+                                .background(Color.White, RoundedCornerShape(6.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(12.dp)
+                                    .background(Color.Black, RoundedCornerShape(2.dp))
+                            )
+                        }
+                    }
+                } else {
+                    // ── Send ──
+                    IconButton(
+                        onClick = onSend,
+                        enabled = (state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !state.isRestoring && !isListening,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(
+                            Modifier
+                                .size(30.dp)
+                                .background(
+                                    if ((state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !isListening) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.ic_arrow_up),
+                                stringResource(R.string.send),
+                                Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
                 }
                 }
@@ -955,6 +1349,7 @@ private fun android.graphics.Bitmap.rotateForExifOrientation(orientation: Int): 
 private fun ChatPanel(
     state: ChatUiState,
     onClose: () -> Unit,
+    onOpenSearch: () -> Unit,
     onNewChat: () -> Unit,
     onSelectChat: (String) -> Unit,
     onDeleteChat: (String) -> Unit,
@@ -962,6 +1357,7 @@ private fun ChatPanel(
 ) {
     val title = stringResource(R.string.chat_history)
     var pendingDelete by remember { mutableStateOf<String?>(null) }
+    val haptic = rememberHapticTap()
 
     ModalDrawerSheet(
         modifier = Modifier
@@ -974,7 +1370,7 @@ private fun ChatPanel(
     ) {
         Column(Modifier.fillMaxHeight()) {
 
-            // ── Top: logo + close ────────────────────────────────────────────
+            // ── Top: logo + search icon (close option removed) ─────────────
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -989,10 +1385,16 @@ private fun ChatPanel(
                     ),
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
+                IconButton(
+                    onClick = {
+                        haptic()
+                        onOpenSearch()
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
-                        Icons.Default.Close,
-                        contentDescription = stringResource(R.string.close_chat_history),
+                        Icons.Default.Search,
+                        contentDescription = "Search chats",
                         tint = SidebarSubText,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1065,7 +1467,6 @@ private fun ChatPanel(
                                 color = if (isActive) SidebarText else SidebarSubText,
                             ),
                         )
-                        // delete icon – always visible on active, else visible on row hover
                         IconButton(
                             onClick = { pendingDelete = chat.id },
                             modifier = Modifier.size(28.dp),
@@ -1102,12 +1503,11 @@ private fun ChatPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // Image instead of Icon so the PNG renders in full colour
-                Image(
-                    painter = painterResource(R.drawable.settings),
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
                     contentDescription = "Settings",
+                    tint = SidebarText,
                     modifier = Modifier.size(22.dp),
-                    contentScale = ContentScale.Fit,
                 )
                 Text(
                     "Settings",
@@ -1132,6 +1532,249 @@ private fun ChatPanel(
                 TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+// ── Full-Screen Search Overlay ───────────────────────────────────────────────
+
+@Composable
+private fun FullScreenSearch(
+    state: ChatUiState,
+    onClose: () -> Unit,
+    onSelectChat: (chatId: String, targetMessageId: Long?, searchQuery: String?) -> Unit,
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val haptic = rememberHapticTap()
+
+    LaunchedEffect(Unit) {
+        delay(150) // Allow slide-up animation to smoothly start before opening keyboard
+        try {
+            searchFocusRequester.requestFocus()
+            keyboard?.show()
+        } catch (_: Exception) {}
+    }
+
+    BackHandler {
+        haptic()
+        keyboard?.hide()
+        onClose()
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding() // CRITICAL: Moves search bar up cleanly above the keyboard
+        ) {
+            // ── Search Results List ──────────────────────────────────────────
+            val filteredConversations = remember(searchQuery, state.conversations) {
+                if (searchQuery.isBlank()) {
+                    state.conversations
+                } else {
+                    state.conversations.filter { chat ->
+                        chat.title.contains(searchQuery, ignoreCase = true) ||
+                                chat.messages.any { it.text.contains(searchQuery, ignoreCase = true) }
+                    }
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(filteredConversations, key = { it.id }) { chat ->
+                    val matchingMsg = remember(chat, searchQuery) {
+                        if (searchQuery.isBlank()) null
+                        else chat.messages.find { it.text.contains(searchQuery, ignoreCase = true) }
+                    }
+                    val snippet = remember(chat, searchQuery, matchingMsg) {
+                        if (searchQuery.isBlank()) {
+                            chat.messages.lastOrNull()?.text?.replace("\n", " ")?.take(90) ?: ""
+                        } else {
+                            if (matchingMsg != null) {
+                                val text = matchingMsg.text.replace("\n", " ")
+                                val idx = text.indexOf(searchQuery, ignoreCase = true)
+                                if (idx != -1) {
+                                    val start = maxOf(0, idx - 15)
+                                    val end = minOf(text.length, idx + searchQuery.length + 40)
+                                    val prefix = if (start > 0) "..." else ""
+                                    val suffix = if (end < text.length) "..." else ""
+                                    prefix + text.substring(start, end) + suffix
+                                } else {
+                                    text.take(90)
+                                }
+                            } else {
+                                chat.messages.lastOrNull()?.text?.replace("\n", " ")?.take(90) ?: ""
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                haptic()
+                                keyboard?.hide()
+                                onSelectChat(chat.id, matchingMsg?.id, searchQuery.ifBlank { null })
+                            }
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_chat_bubble),
+                                contentDescription = null,
+                                tint = SidebarText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = chat.title,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    color = SidebarText,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (snippet.isNotBlank()) {
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    text = snippet,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = SidebarSubText
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (filteredConversations.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 48.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No matching results found",
+                                style = MaterialTheme.typography.bodyMedium.copy(color = SidebarSubText)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Bottom Input Field & Dismiss Button ──────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Search bar input container
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        tint = SidebarSubText,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(searchFocusRequester),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = SidebarText),
+                        singleLine = true,
+                        cursorBrush = SolidColor(SidebarText),
+                        decorationBox = { innerTextField ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        "Search",
+                                        style = MaterialTheme.typography.bodyLarge.copy(color = SidebarSubText)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                haptic()
+                                searchQuery = ""
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Clear search",
+                                tint = SidebarSubText,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Circular dismiss 'X' button
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        .clickable {
+                            haptic()
+                            keyboard?.hide()
+                            onClose()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Close search",
+                        tint = SidebarText,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

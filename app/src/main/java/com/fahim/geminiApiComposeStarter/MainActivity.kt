@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
-import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -45,14 +44,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Always dark status bar / nav bar to match our default dark theme.
+        // The system bars won't visually conflict with either mode since both use transparent bars.
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.BLACK),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         setContent {
-            GeminiApiComposeStarterTheme(darkTheme = true, dynamicColor = false) {
-                ChatRoute(viewModel = viewModel)
-            }
+            // ChatRoute manages its own GeminiApiComposeStarterTheme driven by state.darkMode.
+            // No hardcoded darkTheme here — the ViewModel preference controls it.
+            ChatRoute(viewModel = viewModel)
         }
     }
 }

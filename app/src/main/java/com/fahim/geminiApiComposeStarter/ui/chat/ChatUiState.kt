@@ -15,11 +15,13 @@ data class ChatUiState(
     val errorMessage: String? = null,
     val conversations: List<Conversation> = emptyList(),
     val activeId: String = "",
+    val activeTitle: String? = null,
     val isRestoring: Boolean = false,
     val openKeyboard: Boolean = true,
     val modelName: String = "gemini-3.6-flash",
     val hasSavedKey: Boolean = false,
     val settingsMessage: String? = null,
+    val darkMode: Boolean = true,  // dark by default
 )
 
 /** A selected local item waiting to be submitted with the next request. */
@@ -39,6 +41,7 @@ data class ChatMessage(
     val imagePath: String? = null,
     val imageState: ImageState? = null,
     val attachments: List<PendingAttachment> = emptyList(),
+    val timestamp: Long = System.currentTimeMillis(),
 )
 
 @Stable

@@ -14,13 +14,28 @@ class AppPreferences(context: Context) {
     private val keyboard = booleanPreferencesKey("open_keyboard")
     private val model = stringPreferencesKey("gemini_model")
     private val active = stringPreferencesKey("active_conversation")
+    private val darkModeKey = booleanPreferencesKey("dark_mode")
     val values = store.data.map {
-        Settings(it[keyboard] ?: true, it[model] ?: "gemini-3.6-flash", it[active])
+        Settings(
+            openKeyboard = it[keyboard] ?: true,
+            modelName = it[model] ?: "gemini-3.6-flash",
+            activeId = it[active],
+            darkMode = it[darkModeKey] ?: true,  // dark by default
+        )
     }
-    suspend fun save(openKeyboard: Boolean, modelName: String) {
-        store.edit { it[keyboard] = openKeyboard; it[model] = modelName.trim() }
+    suspend fun save(openKeyboard: Boolean, modelName: String, darkMode: Boolean) {
+        store.edit {
+            it[keyboard] = openKeyboard
+            it[model] = modelName.trim()
+            it[darkModeKey] = darkMode
+        }
     }
     suspend fun select(id: String) { store.edit { it[active] = id } }
 }
 
-data class Settings(val openKeyboard: Boolean = true, val modelName: String = "gemini-3.6-flash", val activeId: String? = null)
+data class Settings(
+    val openKeyboard: Boolean = true,
+    val modelName: String = "gemini-3.6-flash",
+    val activeId: String? = null,
+    val darkMode: Boolean = true,  // dark by default
+)

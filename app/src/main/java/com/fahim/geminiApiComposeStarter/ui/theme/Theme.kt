@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+// ── Dark palette ─────────────────────────────────────────────────────────────
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFF4F4F4),
     onPrimary = Color.Black,
@@ -20,34 +21,43 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = Color(0xFFF4F4F4),
     surface = Color(0xFF191919),
     onSurface = Color(0xFFF4F4F4),
-    surfaceContainer = Color(0xFF191919),
-    surfaceContainerHighest = Color(0xFF262626),
+    surfaceContainer = Color(0xFF1B1B1B),
+    surfaceContainerHigh = Color(0xFF242424),
+    surfaceContainerHighest = Color(0xFF2E2E2E),
     onSurfaceVariant = Color(0xFFAAAAAA),
     outline = Color(0xFF777777),
+    outlineVariant = Color(0xFF333333),
+    primaryContainer = Color(0xFF253D56),
+    onPrimaryContainer = Color(0xFFE8F0FE),
     errorContainer = Color(0xFF321C1C),
     onErrorContainer = Color(0xFFFFDAD6),
 )
 
+// ── Light palette ────────────────────────────────────────────────────────────
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
+    primary = Color(0xFF1A1A1A),
     onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    secondary = Color(0xFF555555),
+    tertiary = Color(0xFF777777),
+    background = Color(0xFFF8F9FA),
+    onBackground = Color(0xFF1F1F1F),
+    surface = Color.White,
+    onSurface = Color(0xFF1F1F1F),
+    surfaceContainer = Color(0xFFF1F3F4),
+    surfaceContainerHigh = Color(0xFFE8EAED),
+    surfaceContainerHighest = Color(0xFFDEE2E6),
+    onSurfaceVariant = Color(0xFF5F6368),
+    outline = Color(0xFFDADCE0),
+    outlineVariant = Color(0xFFE0E0E0),
+    primaryContainer = Color(0xFFE3F2FD),
+    onPrimaryContainer = Color(0xFF0D1B2A),
+    errorContainer = Color(0xFFFFEDED),
+    onErrorContainer = Color(0xFF8B0000),
 )
 
 @Composable
 fun GeminiApiComposeStarterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -56,7 +66,6 @@ fun GeminiApiComposeStarterTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
