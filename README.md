@@ -1,7 +1,5 @@
 # Gemini Compose Chat App
 
-A student lab Android application built with Jetpack Compose, Material 3, and the Google Generative AI SDK (Gemini API).
-
 ## Setup & Gemini API Key Configuration
 
 1. Copy `local.properties.example` to `local.properties` at the project root:
