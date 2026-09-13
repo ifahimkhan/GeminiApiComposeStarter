@@ -20,6 +20,8 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
+-keep @androidx.room.Entity class * { *; }
 -keepattributes *Annotation*, InnerClasses
 -keepclassmembers class com.google.ai.client.generativeai.** { *** Companion; }
 -keepclasseswithmembers class com.google.ai.client.generativeai.** {
