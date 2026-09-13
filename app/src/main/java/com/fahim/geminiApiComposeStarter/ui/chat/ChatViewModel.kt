@@ -1,66 +1,77 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ChatViewModel(
-    private val repository: GeminiRepository,
-    private val hasApiKey: Boolean,
+    private val repository: GeminiRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ChatUiState())
-    val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+    private val _isLoading = MutableStateFlow(false)
+    private val _error = MutableStateFlow<String?>(null)
+    private val _isVoiceInputActive = MutableStateFlow(false)
 
-    fun onPromptChange(value: String) {
-        _uiState.update { it.copy(prompt = value, promptError = null) }
-    }
+    val uiState: StateFlow<ChatUiState> = combine(
+        repository.getChatHistory(),
+        _isLoading,
+        _error,
+        _isVoiceInputActive
+    ) { history, isLoading, error, isVoiceActive ->
+        ChatUiState(
+            messages = history,
+            isLoading = isLoading,
+            error = error,
+            isVoiceInputActive = isVoiceActive
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ChatUiState()
+    )
 
-    fun onSend() {
-        val prompt = _uiState.value.prompt.trim()
-        if (prompt.isEmpty()) {
-            _uiState.update { it.copy(promptError = PromptError.EMPTY) }
-            return
-        }
-        if (!hasApiKey) {
-            _uiState.update { it.copy(errorMessage = MISSING_API_KEY_MESSAGE) }
-            return
-        }
-        if (_uiState.value.isLoading) return
+    fun onSend(prompt: String) {
+        val trimmedPrompt = prompt.trim()
+        if (trimmedPrompt.isEmpty()) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
         viewModelScope.launch {
-            repository.generateText(prompt).fold(
-                onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+            _isLoading.value = true
+            _error.value = null
+            
+            // Save user message
+            repository.saveMessage("user", trimmedPrompt)
+            
+            repository.generateText(trimmedPrompt).fold(
+                onSuccess = { response ->
+                    repository.saveMessage("model", response)
+                    _isLoading.value = false
                 },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
-                        )
-                    }
-                },
+                onFailure = { throwable ->
+                    _error.value = throwable.message ?: "Failed to get response"
+                    _isLoading.value = false
+                }
             )
         }
     }
 
-    companion object {
-        const val MISSING_API_KEY_MESSAGE =
-            "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
+    fun clearHistory() {
+        viewModelScope.launch {
+            repository.clearHistory()
+        }
+    }
+    
+    fun setVoiceInputActive(active: Boolean) {
+        _isVoiceInputActive.value = active
+    }
 
-        fun factory(repository: GeminiRepository, hasApiKey: Boolean) =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ChatViewModel(repository, hasApiKey) as T
-            }
+    fun onErrorDismissed() {
+        _error.value = null
     }
 }

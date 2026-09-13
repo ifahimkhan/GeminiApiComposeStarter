@@ -1,0 +1,3 @@
+# Gemini API Key for local development.
+# Obtain a key from https://aistudio.google.com/
+GEMINI_API_KEY=your_api_key_here
