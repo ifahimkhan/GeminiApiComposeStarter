@@ -1,5 +1,10 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -64,6 +70,7 @@ fun ChatRoute(viewModel: ChatViewModel) {
         state = state,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onToggleInputMode = viewModel::toggleInputMode,
     )
 }
 
@@ -72,6 +79,7 @@ fun ChatScreen(
     state: ChatUiState,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onToggleInputMode: () -> Unit = {},
     windowWidthSizeClass: WindowWidthSizeClass = rememberWindowWidthSizeClass(),
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -125,8 +133,10 @@ fun ChatScreen(
                     prompt = state.prompt,
                     promptError = state.promptError,
                     enabled = !state.isLoading,
+                    isExpandedInput = state.isExpandedInput,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onToggleInputMode = onToggleInputMode,
                 )
             }
         }
@@ -301,9 +311,24 @@ private fun PromptBar(
     prompt: String,
     promptError: PromptError?,
     enabled: Boolean,
+    isExpandedInput: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onToggleInputMode: () -> Unit,
 ) {
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                onPromptChange(spokenText)
+            }
+        }
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -313,13 +338,45 @@ private fun PromptBar(
             onValueChange = onPromptChange,
             modifier = Modifier.weight(1f).padding(end = 8.dp),
             label = { Text(stringResource(R.string.enter_your_prompt_here)) },
-            minLines = 3,
+            minLines = if (isExpandedInput) 3 else 1,
+            maxLines = if (isExpandedInput) 5 else 1,
             enabled = enabled,
             isError = promptError != null,
+            trailingIcon = {
+                IconButton(onClick = onToggleInputMode, enabled = enabled) {
+                    Text(
+                        text = if (isExpandedInput) "3L" else "1L",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
             supportingText = promptError?.let {
                 { Text(stringResource(R.string.field_cannot_be_empty)) }
             },
         )
+        IconButton(
+            onClick = {
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                    )
+                }
+                try {
+                    speechRecognizerLauncher.launch(intent)
+                } catch (_: Exception) {
+                    // Speech recognition not available on device
+                }
+            },
+            enabled = enabled,
+            modifier = Modifier.padding(end = 4.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_mic),
+                contentDescription = "Voice Input",
+            )
+        }
         FilledIconButton(onClick = onSend, enabled = enabled) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
