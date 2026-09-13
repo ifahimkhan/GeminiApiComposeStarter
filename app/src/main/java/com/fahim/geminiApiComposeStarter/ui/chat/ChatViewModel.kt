@@ -34,17 +34,33 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        val userMessage = ChatMessage(text = prompt, isUser = true)
+        _uiState.update {
+            it.copy(
+                prompt = "",
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+                messages = it.messages + userMessage,
+            )
+        }
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    val geminiMessage = ChatMessage(text = text, isUser = false)
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            response = text,
+                            messages = it.messages + geminiMessage,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
+                            errorMessage = error.message ?: "Failed to generate response. Please try again.",
                         )
                     }
                 },
