@@ -37,6 +37,7 @@ import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
+
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -86,11 +87,10 @@ fun ChatScreen(
 @Composable
 private fun ResponseArea(text: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier.verticalScroll(rememberScrollState())) {
-        Icon(
-            painter = painterResource(R.drawable.ic_assistant),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
+        Text(
+            text = "🤖",
+            fontSize = 40.sp,
+            modifier = Modifier.size(48.dp)
         )
         Text(
             text = text.toBoldAnnotatedString(),
