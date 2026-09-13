@@ -2,20 +2,27 @@ package com.fahim.geminiApiComposeStarter.ui.chat
 
 import android.Manifest
 import android.content.Intent
+import android.graphics.Matrix
+import android.net.Uri
 import android.content.pm.PackageManager
+import android.media.ExifInterface
 import android.os.Bundle
+import android.graphics.BitmapFactory
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -31,6 +38,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
@@ -48,6 +56,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size as GeoSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -71,6 +80,9 @@ import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 
 // ── Colour palette (matches main dark theme) ─────────────────────────────────
 private val SidebarBg        = Color(0xFF171717)   // ChatGPT sidebar colour
@@ -86,7 +98,9 @@ fun ChatRoute(viewModel: ChatViewModel) {
     ChatScreen(state, viewModel::onPromptChange, viewModel::onSend,
         autoFocus = state.openKeyboard, onNewChat = viewModel::newChat,
         onSelectChat = viewModel::selectChat, onDeleteChat = viewModel::deleteChat,
-        onSaveSettings = viewModel::saveSettings)
+        onSaveSettings = viewModel::saveSettings,
+        onAttachmentsAdded = viewModel::addAttachments,
+        onAttachmentRemoved = viewModel::removeAttachment)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
@@ -100,6 +114,8 @@ fun ChatScreen(
     onSelectChat: (String) -> Unit = {},
     onDeleteChat: (String) -> Unit = {},
     onSaveSettings: (String?, Boolean, String) -> Unit = { _, _, _ -> },
+    onAttachmentsAdded: (List<PendingAttachment>) -> Unit = {},
+    onAttachmentRemoved: (String) -> Unit = {},
 ) {
     var settingsOpen by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
@@ -208,6 +224,8 @@ fun ChatScreen(
                     keyboard = keyboard,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onAttachmentsAdded = onAttachmentsAdded,
+                    onAttachmentRemoved = onAttachmentRemoved,
                     modifier = Modifier
                         .widthIn(max = contentWidth)
                         .fillMaxWidth()
@@ -237,10 +255,21 @@ private fun Suggestions(onSelect: (String) -> Unit) {
             val promptText = stringResource(prompt)
             Surface(onClick = { onSelect(promptText) }, color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(16.dp)) {
-                Column(Modifier.width(182.dp).padding(horizontal = 14.dp, vertical = 12.dp)) {
-                    Text(stringResource(title), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Column(
+                    Modifier.width(210.dp).heightIn(min = 82.dp).padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        stringResource(title),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Text(stringResource(subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -276,23 +305,119 @@ private fun ChatBubble(message: ChatMessage) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
         if (!isUser) {
             Icon(painterResource(R.drawable.ic_gemini_mark), null, Modifier.padding(bottom = 12.dp).size(24.dp))
-            Box(Modifier.fillMaxWidth()) {
-                ResponseContent(message.text)
+            when (message.kind) {
+                MessageKind.TEXT -> Box(Modifier.fillMaxWidth()) { ResponseContent(message.text) }
+                MessageKind.IMAGE -> GeneratedImageMessage(message)
             }
         } else {
-            Surface(
+            Column(
                 modifier = Modifier.widthIn(max = 620.dp).padding(start = 32.dp),
-                color = Color(0xFF253D56),
-                shape = RoundedCornerShape(24.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SelectionContainer {
+                if (message.attachments.isNotEmpty()) {
+                    SentAttachmentGallery(message.attachments)
+                }
+                Surface(
+                    color = Color(0xFF253D56),
+                    shape = RoundedCornerShape(24.dp),
+                ) {
+                    SelectionContainer {
+                        Text(
+                            message.text,
+                            Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SentAttachmentGallery(attachments: List<PendingAttachment>) {
+    val context = LocalContext.current
+    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        attachments.forEach { attachment ->
+            if (attachment.mimeType.startsWith("image/")) {
+                val bitmap by produceState<android.graphics.Bitmap?>(null, attachment.uri) {
+                    value = withContext(Dispatchers.IO) {
+                        loadPreviewBitmap(context, Uri.parse(attachment.uri), maxDimension = 900)
+                    }
+                }
+                Surface(
+                    modifier = Modifier.widthIn(max = 280.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap!!.asImageBitmap(),
+                            contentDescription = attachment.name,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
+                        )
+                    } else {
+                        Text(
+                            "Image unavailable",
+                            Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(16.dp),
+                ) {
                     Text(
-                        message.text,
-                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        style = MaterialTheme.typography.bodyLarge,
+                        attachment.name,
+                        Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GeneratedImageMessage(message: ChatMessage) {
+    when (message.imageState) {
+        ImageState.READY -> {
+            val bitmap = remember(message.imagePath) { message.imagePath?.let(BitmapFactory::decodeFile) }
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Generated image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).clip(RoundedCornerShape(18.dp)),
+                )
+            } else ImageGenerationCard("The generated image is unavailable on this device.", false)
+        }
+        ImageState.FAILED -> ImageGenerationCard(message.text.ifBlank { "Image creation failed." }, false)
+        else -> ImageGenerationCard("Creating image…", true)
+    }
+}
+
+@Composable
+private fun ImageGenerationCard(label: String, loading: Boolean) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.widthIn(max = 420.dp),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -371,19 +496,57 @@ private fun PromptBar(
     keyboard: androidx.compose.ui.platform.SoftwareKeyboardController?,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onAttachmentsAdded: (List<PendingAttachment>) -> Unit,
+    onAttachmentRemoved: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val promptLabel = stringResource(R.string.enter_your_prompt_here)
     val interactionSource = remember { MutableInteractionSource() }
+    var actionsOpen by remember { mutableStateOf(false) }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
 
     var isListening by remember { mutableStateOf(false) }
     var isTranscribing by remember { mutableStateOf(false) }
     val audioLevels = remember { mutableStateListOf<Float>() }
+    var smoothedAudioLevel by remember { mutableFloatStateOf(0.2f) }
 
     var speechRecognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
 
     var userRequestedListening by remember { mutableStateOf(false) }
+
+    fun attachmentFor(uri: Uri, fallbackName: String): PendingAttachment {
+        val resolver = context.contentResolver
+        val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+            ?: fallbackName
+        return PendingAttachment(uri.toString(), name, resolver.getType(uri) ?: "application/octet-stream")
+    }
+
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(5)) { uris ->
+        uris.forEach { uri -> runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } }
+        onAttachmentsAdded(uris.map { attachmentFor(it, "Photo") })
+    }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        uris.forEach { uri -> runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } }
+        onAttachmentsAdded(uris.map { attachmentFor(it, "File") })
+    }
+    val cameraPicker = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        val uri = pendingCameraUri
+        if (captured && uri != null) onAttachmentsAdded(listOf(attachmentFor(uri, "Camera photo")))
+        pendingCameraUri = null
+    }
+
+    fun launchCamera() {
+        val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.attachments", file)
+        pendingCameraUri = uri
+        cameraPicker.launch(uri)
+    }
 
     DisposableEffect(context) {
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -414,8 +577,8 @@ private fun PromptBar(
                 }
                 override fun onBeginningOfSpeech() {}
                 override fun onRmsChanged(rmsdB: Float) {
-                    val norm = ((rmsdB + 2f) / 12f).coerceIn(0.15f, 1f)
-                    audioLevels.add(norm)
+                    val target = ((rmsdB + 2f) / 12f).coerceIn(0.15f, 1f)
+                    smoothedAudioLevel += (target - smoothedAudioLevel) * 0.18f
                 }
                 override fun onBufferReceived(buffer: ByteArray?) {}
                 override fun onEndOfSpeech() {
@@ -463,6 +626,7 @@ private fun PromptBar(
             isListening = true
             isTranscribing = false
             audioLevels.clear()
+            smoothedAudioLevel = 0.2f
         } else {
             Toast.makeText(context, "Speech recognition unavailable on this device", Toast.LENGTH_SHORT).show()
         }
@@ -503,13 +667,12 @@ private fun PromptBar(
         if (isListening) {
             var timeMs = 0L
             while (isListening) {
-                delay(60)
-                timeMs += 60
-                val base = audioLevels.lastOrNull() ?: 0.2f
-                val jitter = (kotlin.math.sin(timeMs / 100.0) * 0.15f).toFloat()
-                val liveLevel = (base + jitter).coerceIn(0.12f, 0.95f)
+                delay(130)
+                timeMs += 130
+                val wave = (kotlin.math.sin(timeMs / 360.0) * 0.06f).toFloat()
+                val liveLevel = (smoothedAudioLevel + wave).coerceIn(0.12f, 0.95f)
                 audioLevels.add(liveLevel)
-                if (audioLevels.size > 80) audioLevels.removeAt(0)
+                while (audioLevels.size > 80) audioLevels.removeAt(0)
             }
         }
     }
@@ -518,7 +681,7 @@ private fun PromptBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(CircleShape)
+                .clip(if (state.pendingAttachments.isEmpty()) CircleShape else RoundedCornerShape(30.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                 .clickable(
                     interactionSource = interactionSource,
@@ -529,19 +692,42 @@ private fun PromptBar(
                     keyboard?.show()
                 },
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Audio mode icon
-                IconButton(onClick = toggleVoiceInput, modifier = Modifier.size(38.dp)) {
-                    Icon(
-                        painterResource(R.drawable.ic_audio_wave),
-                        "Voice mode",
-                        Modifier.size(20.dp),
-                        tint = if (isListening) Color(0xFF10A37F) else MaterialTheme.colorScheme.onSurfaceVariant
+            Column(Modifier.fillMaxWidth()) {
+                if (state.pendingAttachments.isNotEmpty()) {
+                    AttachmentStrip(state.pendingAttachments, onAttachmentRemoved)
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                Box {
+                    IconButton(
+                        onClick = { actionsOpen = !actionsOpen },
+                        enabled = !state.isLoading && !state.isRestoring && !isListening,
+                        modifier = Modifier.size(38.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "More actions",
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    AttachmentPopover(
+                        expanded = actionsOpen,
+                        onDismiss = { actionsOpen = false },
+                        onPhotos = {
+                            actionsOpen = false
+                            photoPicker.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        },
+                        onCamera = { actionsOpen = false; launchCamera() },
+                        onFiles = { actionsOpen = false; filePicker.launch(arrayOf("*/*")) },
                     )
                 }
 
@@ -578,7 +764,9 @@ private fun PromptBar(
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(
                                 onSend = {
-                                    if (!state.isRestoring && !state.isLoading && state.prompt.isNotBlank()) onSend()
+                                    if (!state.isRestoring && !state.isLoading && (state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty())) {
+                                        onSend()
+                                    }
                                 },
                             ),
                             decorationBox = { innerTextField ->
@@ -597,7 +785,7 @@ private fun PromptBar(
                     }
                 }
 
-                // Mic button
+                // Microphone
                 IconButton(onClick = toggleVoiceInput, modifier = Modifier.size(38.dp)) {
                     if (isListening) {
                         Box(
@@ -626,14 +814,14 @@ private fun PromptBar(
                 // Send button
                 IconButton(
                     onClick = onSend,
-                    enabled = state.prompt.isNotBlank() && !state.isLoading && !state.isRestoring && !isListening,
+                    enabled = (state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !state.isLoading && !state.isRestoring && !isListening,
                     modifier = Modifier.size(38.dp)
                 ) {
                     Box(
                         Modifier
                             .size(30.dp)
                             .background(
-                                if (state.prompt.isNotBlank() && !state.isLoading && !isListening) MaterialTheme.colorScheme.primary
+                                if ((state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !state.isLoading && !isListening) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 CircleShape,
                             ),
@@ -646,6 +834,7 @@ private fun PromptBar(
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
+                }
                 }
             }
         }
@@ -661,6 +850,106 @@ private fun PromptBar(
 }
 
 // ── Left panel (ChatGPT-style, minimalistic) ──────────────────────────────────
+
+@Composable
+private fun AttachmentStrip(attachments: List<PendingAttachment>, onRemove: (String) -> Unit) {
+    val context = LocalContext.current
+    LazyRow(
+        Modifier.fillMaxWidth().height(108.dp),
+        contentPadding = PaddingValues(start = 14.dp, end = 10.dp, top = 12.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(attachments, key = { it.uri }) { attachment ->
+            AttachmentPreview(attachment, onRemove, context)
+        }
+    }
+}
+
+@Composable
+private fun AttachmentPreview(
+    attachment: PendingAttachment,
+    onRemove: (String) -> Unit,
+    context: android.content.Context,
+) {
+    val bitmap by produceState<android.graphics.Bitmap?>(null, attachment.uri, attachment.mimeType) {
+        value = if (!attachment.mimeType.startsWith("image/")) null
+        else withContext(Dispatchers.IO) { loadPreviewBitmap(context, Uri.parse(attachment.uri)) }
+    }
+    Box(
+        modifier = Modifier
+            .size(92.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        bitmap?.let { preview ->
+            Image(
+                bitmap = preview.asImageBitmap(),
+                contentDescription = attachment.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } ?: run {
+            Text(
+                attachment.name.take(1).uppercase(),
+                modifier = Modifier.align(Alignment.Center),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(5.dp)
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.62f), CircleShape)
+                .clickable { onRemove(attachment.uri) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Default.Close, "Remove ${attachment.name}", Modifier.size(15.dp), tint = Color.White)
+        }
+    }
+}
+
+private fun loadPreviewBitmap(
+    context: android.content.Context,
+    uri: Uri,
+    maxDimension: Int = 184,
+): android.graphics.Bitmap? = runCatching {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    var sampleSize = 1
+    while (bounds.outWidth / sampleSize > maxDimension || bounds.outHeight / sampleSize > maxDimension) sampleSize *= 2
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize.coerceAtLeast(1) }
+    val decoded = context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, options)
+    } ?: return@runCatching null
+    val orientation = context.contentResolver.openInputStream(uri)?.use {
+        ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+    } ?: ExifInterface.ORIENTATION_NORMAL
+    decoded.rotateForExifOrientation(orientation)
+}.getOrNull()
+
+private fun android.graphics.Bitmap.rotateForExifOrientation(orientation: Int): android.graphics.Bitmap {
+    val matrix = Matrix().apply {
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> postScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                postRotate(90f)
+                postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                postRotate(270f)
+                postScale(-1f, 1f)
+            }
+        }
+    }
+    return if (matrix.isIdentity) this else android.graphics.Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+}
 
 @Composable
 private fun ChatPanel(

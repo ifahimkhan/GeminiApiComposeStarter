@@ -10,6 +10,7 @@ import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
 import com.fahim.geminiApiComposeStarter.data.ApiKeyVault
 import com.fahim.geminiApiComposeStarter.data.AppPreferences
 import com.fahim.geminiApiComposeStarter.data.FileChatStorage
+import com.fahim.geminiApiComposeStarter.data.GeneratedImageStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
@@ -32,12 +33,13 @@ class MainActivity : ComponentActivity() {
         }
 
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = { vault.read() },
+            repository = GeminiRepositoryImpl(applicationContext, apiKey = { vault.read() },
                 modelName = { runBlocking { preferences.values.first().modelName } }),
             hasApiKey = buildTimeKey.isNotBlank() || runBlocking { vault.read().isNotBlank() },
             storage = FileChatStorage(applicationContext),
             preferences = preferences,
             vault = vault,
+            imageStore = GeneratedImageStore(applicationContext),
         )
     }
 

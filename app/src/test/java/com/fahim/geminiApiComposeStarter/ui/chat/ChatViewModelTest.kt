@@ -117,13 +117,33 @@ class ChatViewModelTest {
         assertEquals(ids.size, ids.toSet().size)
     }
 
+    @Test fun attachmentsCanBeSentWithoutTypedTextAndAreClearedAfterward() = runTest(dispatcher) {
+        val received = mutableListOf<PendingAttachment>()
+        val repo = object : GeminiRepository {
+            override suspend fun generateText(prompt: String) = Result.success("unused")
+            override suspend fun generateConversation(messages: List<ChatMessage>, attachments: List<PendingAttachment>): Result<String> {
+                received += attachments
+                return Result.success("I can see the attachment.")
+            }
+        }
+        val vm = ChatViewModel(repo, true)
+        val attachment = PendingAttachment("content://example/file", "notes.pdf", "application/pdf")
+        vm.addAttachments(listOf(attachment))
+        vm.onSend()
+        advanceUntilIdle()
+        assertEquals(listOf(attachment), received)
+        assertTrue(vm.uiState.value.pendingAttachments.isEmpty())
+        assertEquals("Analyze the attached file.", vm.uiState.value.messages.first().text)
+        assertEquals(listOf(attachment), vm.uiState.value.messages.first().attachments)
+    }
+
     private class MemoryStorage : ChatStorage {
         var saved = emptyList<Conversation>()
         override suspend fun load() = saved
         override suspend fun save(conversations: List<Conversation>) { saved = conversations }
     }
 
-    @Test fun restoresMessagesAndDraftAfterNewViewModel() = runTest(dispatcher) {
+    @Test fun unsentDraftIsNeverStoredOrRestored() = runTest(dispatcher) {
         val storage = MemoryStorage()
         val vm = ChatViewModel(FakeRepository(), true, storage)
         advanceUntilIdle()
@@ -134,12 +154,23 @@ class ChatViewModelTest {
         advanceUntilIdle()
         val restored = ChatViewModel(FakeRepository(), true, storage)
         advanceUntilIdle()
-        assertEquals(vm.uiState.value.messages, restored.uiState.value.messages)
-        assertEquals("Unsent draft", restored.uiState.value.prompt)
-        restored.onSend()
+        assertEquals("", storage.saved.single().draft)
+        assertEquals("", restored.uiState.value.prompt)
+        val conversationId = storage.saved.single().id
+        restored.selectChat(conversationId)
         advanceUntilIdle()
-        val ids = restored.uiState.value.messages.map { it.id }
-        assertEquals(ids.size, ids.toSet().size)
+        assertEquals(listOf("Remember me", "Hello from Gemini"), restored.uiState.value.messages.map { it.text })
+        assertEquals("", restored.uiState.value.prompt)
+    }
+
+    @Test fun typingInANewChatDoesNotCreateAHistoryEntry() = runTest(dispatcher) {
+        val storage = MemoryStorage()
+        val vm = ChatViewModel(FakeRepository(), true, storage)
+        advanceUntilIdle()
+        vm.onPromptChange("Do not save me")
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.conversations.isEmpty())
+        assertTrue(storage.saved.isEmpty())
     }
 
     @Test fun switchesChatsWithoutMixingMessagesAndDeletesOnlySelectedChat() = runTest(dispatcher) {

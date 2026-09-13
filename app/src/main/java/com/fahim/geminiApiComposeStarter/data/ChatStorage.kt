@@ -26,7 +26,7 @@ interface ChatStorage {
     suspend fun save(conversations: List<Conversation>)
 }
 
-/** Atomic, app-private files. No server, database, or Android cloud backup. */
+/** Atomic, app-private files. No server or Android cloud backup. */
 class FileChatStorage(context: Context) : ChatStorage {
     private val file = AtomicFile(File(context.noBackupFilesDir, "conversations.json"))
     private val mutex = Mutex()
@@ -42,8 +42,28 @@ class FileChatStorage(context: Context) : ChatStorage {
                 Conversation(chat.getString("id"), chat.getString("title"),
                     List(messages.length()) { i ->
                         val message = messages.getJSONObject(i)
-                        ChatMessage(message.getLong("id"), ChatRole.valueOf(message.getString("role")), message.getString("text"))
-                    }, chat.optString("draft"))
+                        ChatMessage(
+                            id = message.getLong("id"),
+                            role = ChatRole.valueOf(message.getString("role")),
+                            text = message.getString("text"),
+                            kind = runCatching { com.fahim.geminiApiComposeStarter.ui.chat.MessageKind.valueOf(message.optString("kind", "TEXT")) }
+                                .getOrDefault(com.fahim.geminiApiComposeStarter.ui.chat.MessageKind.TEXT),
+                            imagePath = message.optString("imagePath").takeIf { it.isNotBlank() },
+                            imageState = message.optString("imageState").takeIf { it.isNotBlank() }?.let {
+                                runCatching { com.fahim.geminiApiComposeStarter.ui.chat.ImageState.valueOf(it) }.getOrNull()
+                            },
+                            attachments = message.optJSONArray("attachments")?.let { attachments ->
+                                List(attachments.length()) { attachmentIndex ->
+                                    val attachment = attachments.getJSONObject(attachmentIndex)
+                                    com.fahim.geminiApiComposeStarter.ui.chat.PendingAttachment(
+                                        uri = attachment.getString("uri"),
+                                        name = attachment.getString("name"),
+                                        mimeType = attachment.getString("mimeType"),
+                                    )
+                                }
+                            }.orEmpty(),
+                        )
+                    }, "")
             }
         }
     }
@@ -53,9 +73,21 @@ class FileChatStorage(context: Context) : ChatStorage {
             conversations.forEach { chat ->
                 val messages = JSONArray()
                 chat.messages.forEach { message ->
-                    messages.put(JSONObject().put("id", message.id).put("role", message.role.name).put("text", message.text))
+                    val attachments = JSONArray()
+                    message.attachments.forEach { attachment ->
+                        attachments.put(
+                            JSONObject()
+                                .put("uri", attachment.uri)
+                                .put("name", attachment.name)
+                                .put("mimeType", attachment.mimeType)
+                        )
+                    }
+                    messages.put(JSONObject().put("id", message.id).put("role", message.role.name)
+                        .put("text", message.text).put("kind", message.kind.name)
+                        .put("imagePath", message.imagePath ?: "").put("imageState", message.imageState?.name ?: "")
+                        .put("attachments", attachments))
                 }
-                chats.put(JSONObject().put("id", chat.id).put("title", chat.title).put("draft", chat.draft).put("messages", messages))
+                chats.put(JSONObject().put("id", chat.id).put("title", chat.title).put("draft", "").put("messages", messages))
             }
             val bytes = JSONObject().put("version", 1).put("chats", chats).toString().toByteArray(Charsets.UTF_8)
             val output = file.startWrite()
