@@ -27,13 +27,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,6 +37,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -48,6 +47,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -56,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -71,15 +74,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownTypography
+import kotlinx.coroutines.launch
 
 private const val EMPTY_CHAT_MESSAGE = "What should we explore?"
 private const val PROMPT_PLACEHOLDER = "Ask anything"
 private const val EMPTY_FIELD_ERROR = "Field cannot be empty"
 private const val SEND_DESCRIPTION = "Send"
 private const val MENU_DESCRIPTION = "Open menu"
-private const val INCOGNITO_DESCRIPTION = "Private mode"
 private const val LIGHT_MODE_DESCRIPTION = "Switch to light mode"
 private const val DARK_MODE_DESCRIPTION = "Switch to dark mode"
+private const val NEW_CHAT_LABEL = "New chat"
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
@@ -95,6 +99,8 @@ fun ChatRoute(
         windowWidthSizeClass = windowSizeClass.widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onNewChat = viewModel::onNewChat,
+        onSelectChat = viewModel::onSelectChat,
         darkTheme = darkTheme,
         onToggleTheme = onToggleTheme,
     )
@@ -107,35 +113,99 @@ fun ChatScreen(
     windowWidthSizeClass: WindowWidthSizeClass,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onNewChat: () -> Unit,
+    onSelectChat: (String) -> Unit,
     darkTheme: Boolean,
     onToggleTheme: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            ChatTopBar(
-                darkTheme = darkTheme,
-                onToggleTheme = onToggleTheme,
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ChatDrawer(
+                chats = state.chatSummaries,
+                activeChatId = state.activeChatId,
+                onNewChat = {
+                    onNewChat()
+                    scope.launch { drawerState.close() }
+                },
+                onSelectChat = { chatId ->
+                    onSelectChat(chatId)
+                    scope.launch { drawerState.close() }
+                },
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-        ChatContent(
-            state = state,
-            windowWidthSizeClass = windowWidthSizeClass,
-            onPromptChange = onPromptChange,
-            onSend = onSend,
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                ChatTopBar(
+                    darkTheme = darkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onMenuClick = { scope.launch { drawerState.open() } },
+                )
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+        ) { innerPadding ->
+            ChatContent(
+                state = state,
+                windowWidthSizeClass = windowWidthSizeClass,
+                onPromptChange = onPromptChange,
+                onSend = onSend,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .imePadding(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChatDrawer(
+    chats: List<ChatSummary>,
+    activeChatId: String,
+    onNewChat: () -> Unit,
+    onSelectChat: (String) -> Unit,
+) {
+    ModalDrawerSheet(
+        drawerContainerColor = MaterialTheme.colorScheme.background,
+        drawerContentColor = MaterialTheme.colorScheme.onBackground,
+    ) {
+        Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding(),
-        )
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Text(
+                text = "Chats",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            TextButton(
+                onClick = onNewChat,
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                Text(NEW_CHAT_LABEL)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            chats.forEach { chat ->
+                NavigationDrawerItem(
+                    label = { Text(chat.title) },
+                    selected = chat.id == activeChatId,
+                    onClick = { onSelectChat(chat.id) },
+                    modifier = Modifier.padding(vertical = 2.dp),
+                )
+            }
+        }
     }
 }
 
@@ -143,6 +213,7 @@ fun ChatScreen(
 private fun ChatTopBar(
     darkTheme: Boolean,
     onToggleTheme: () -> Unit,
+    onMenuClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -153,7 +224,7 @@ private fun ChatTopBar(
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = {}) {
+        IconButton(onClick = onMenuClick) {
             Icon(
                 imageVector = Icons.Filled.Menu,
                 contentDescription = MENU_DESCRIPTION,
@@ -165,13 +236,6 @@ private fun ChatTopBar(
             Icon(
                 imageVector = if (darkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
                 contentDescription = if (darkTheme) LIGHT_MODE_DESCRIPTION else DARK_MODE_DESCRIPTION,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        IconButton(onClick = {}) {
-            Icon(
-                imageVector = Icons.Filled.VisibilityOff,
-                contentDescription = INCOGNITO_DESCRIPTION,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -198,7 +262,6 @@ private fun ChatContent(
         else -> 840.dp
     }
     val showLoadingBubble = state.isLoading && state.messages.lastOrNull()?.author != ChatAuthor.GEMINI
-    val latestMessageTextLength = state.messages.lastOrNull()?.text?.length ?: 0
     val extraItemCount = when {
         showLoadingBubble && state.errorMessage != null -> 2
         showLoadingBubble || state.errorMessage != null -> 1
@@ -206,9 +269,9 @@ private fun ChatContent(
         else -> 0
     }
 
-    LaunchedEffect(state.messages.size, latestMessageTextLength, showLoadingBubble, state.errorMessage) {
+    LaunchedEffect(state.messages.size, showLoadingBubble, state.errorMessage) {
         val itemCount = state.messages.size + extraItemCount
-        if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
+        if (itemCount > 0) listState.scrollToItem(itemCount - 1)
     }
 
     Box(
@@ -295,7 +358,7 @@ private fun ChatBubble(
                 Text(
                     text = message.text,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -314,17 +377,29 @@ private fun GeminiMarkdown(content: String, modifier: Modifier = Modifier) {
             h1 = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
             h2 = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 24.sp),
             h3 = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp, lineHeight = 23.sp),
-            h4 = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 22.sp),
-            h5 = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 21.sp),
-            h6 = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, lineHeight = 20.sp),
-            text = MaterialTheme.typography.bodyLarge,
-            paragraph = MaterialTheme.typography.bodyLarge,
-            ordered = MaterialTheme.typography.bodyLarge,
-            bullet = MaterialTheme.typography.bodyLarge,
-            list = MaterialTheme.typography.bodyLarge,
-            code = MaterialTheme.typography.bodyMedium,
-            inlineCode = MaterialTheme.typography.bodyMedium,
-            table = MaterialTheme.typography.bodyMedium,
+            h4 = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Normal,
+            ),
+            h5 = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+                fontWeight = FontWeight.Normal,
+            ),
+            h6 = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontWeight = FontWeight.Normal,
+            ),
+            text = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
+            paragraph = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
+            ordered = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
+            bullet = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
+            list = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
+            code = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal),
+            inlineCode = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal),
+            table = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal),
         ),
     )
 }
@@ -426,11 +501,13 @@ private fun PromptBar(
                     placeholder = {
                         Text(
                             text = PROMPT_PLACEHOLDER,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                     minLines = 1,
                     maxLines = 4,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal),
                     enabled = enabled,
                     isError = promptError != null,
                     supportingText = promptError?.let { { Text(EMPTY_FIELD_ERROR) } },
@@ -441,9 +518,9 @@ private fun PromptBar(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
                         disabledContainerColor = Color.Transparent,
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        disabledBorderColor = Color.Transparent,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        disabledBorderColor = MaterialTheme.colorScheme.outline,
                     ),
                 )
                 Row(
@@ -452,28 +529,7 @@ private fun PromptBar(
                         .padding(start = 6.dp, end = 8.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = {}, modifier = Modifier.size(44.dp)) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                     Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = {}, modifier = Modifier.size(40.dp)) {
-                        Icon(
-                            imageVector = Icons.Filled.FlashOn,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = {}, modifier = Modifier.size(40.dp)) {
-                        Icon(
-                            imageVector = Icons.Filled.Mic,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                     IconButton(
                         onClick = onSend,
                         enabled = enabled,
@@ -508,6 +564,8 @@ private fun ChatScreenPreview() {
                 .widthSizeClass,
             onPromptChange = {},
             onSend = {},
+            onNewChat = {},
+            onSelectChat = {},
             darkTheme = false,
             onToggleTheme = {},
         )

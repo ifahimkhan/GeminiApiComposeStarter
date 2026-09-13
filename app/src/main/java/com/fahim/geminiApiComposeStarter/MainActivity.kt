@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.fahim.geminiApiComposeStarter.data.ChatStore
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
 import com.fahim.geminiApiComposeStarter.data.SecureApiKeyStore
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
         val apiKey = secureApiKeyStore.getApiKey()
         ChatViewModel.factory(
             repository = GeminiRepositoryImpl(apiKey = apiKey),
+            chatStore = ChatStore(this),
             hasApiKey = apiKey.isNotBlank(),
         )
     }

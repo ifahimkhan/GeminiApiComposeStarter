@@ -31,6 +31,7 @@ class GeminiRepositoryImpl(
         prompt: String,
         history: List<ConversationMessage>,
     ): Flow<Result<String>> = flow {
+
         val chat = model.startChat(history = history.map { it.toContent() })
         chat.sendMessageStream(prompt).collect { response ->
             response.text?.takeIf { it.isNotEmpty() }?.let { chunk ->
