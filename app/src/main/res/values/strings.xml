@@ -1,7 +1,28 @@
 <resources>
     <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="chat_title">Gemini Chat</string>
+    <string name="enter_your_prompt_here">Message Gemini</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+
+    <string name="empty_state_title">Ask Gemini anything</string>
+    <string name="empty_state_subtitle">Type a prompt below, or tap the mic to speak.</string>
+
+    <string name="voice_input">Voice input</string>
+    <string name="voice_prompt">Speak your prompt</string>
+    <string name="voice_unavailable">No speech recogniser is available on this device</string>
+    <string name="voice_permission_denied">Microphone permission is needed for voice input</string>
+
+    <string name="clear_chat">Clear conversation</string>
+    <string name="theme_mode">Change theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="dynamic_colour">Dynamic colour</string>
+
+    <string name="you">You</string>
+    <string name="gemini">Gemini</string>
+    <string name="thinking">Gemini is thinking\u2026</string>
+    <string name="retry">Retry</string>
+    <string name="generic_error">Something went wrong</string>
 </resources>
