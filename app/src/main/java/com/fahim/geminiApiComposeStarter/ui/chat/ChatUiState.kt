@@ -1,4 +1,3 @@
-
 package com.fahim.geminiApiComposeStarter.ui.chat
 
 /**
@@ -22,4 +21,6 @@ data class ChatUiState(
     val errorMessage: String? = null,
 )
 
-enum class PromptError { EMPTY }
+enum class PromptError {
+    EMPTY
+}

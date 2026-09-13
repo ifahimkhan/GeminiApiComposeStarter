@@ -1,4 +1,3 @@
-
 package com.fahim.geminiApiComposeStarter.ui.chat
 
 import androidx.lifecycle.ViewModel
@@ -69,6 +68,7 @@ class ChatViewModel(
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
+
                     val geminiMessage = ChatMessage(
                         id = nextMessageId++,
                         text = text,
@@ -84,6 +84,7 @@ class ChatViewModel(
                     }
                 },
                 onFailure = { error ->
+
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -97,6 +98,7 @@ class ChatViewModel(
     }
 
     companion object {
+
         const val MISSING_API_KEY_MESSAGE =
             "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
 
@@ -108,7 +110,10 @@ class ChatViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(
                 modelClass: Class<T>,
-            ): T = ChatViewModel(repository, hasApiKey) as T
+            ): T = ChatViewModel(
+                repository,
+                hasApiKey,
+            ) as T
         }
     }
 }
