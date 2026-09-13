@@ -65,7 +65,7 @@ fun ChatScreen(
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 ResponseArea(
-                    text = state.response.ifEmpty { stringResource(R.string.response_placeholder) },
+                    text = state.errorMessage ?: state.response.ifEmpty { stringResource(R.string.response_placeholder) },
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
                 PromptBar(

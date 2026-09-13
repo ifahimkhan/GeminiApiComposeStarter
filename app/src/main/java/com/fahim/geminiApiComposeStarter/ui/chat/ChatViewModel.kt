@@ -44,7 +44,7 @@ class ChatViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
+                            errorMessage = "${error.javaClass.simpleName}: ${error.message ?: "no message"}",
                         )
                     }
                 },
@@ -64,3 +64,4 @@ class ChatViewModel(
             }
     }
 }
+
