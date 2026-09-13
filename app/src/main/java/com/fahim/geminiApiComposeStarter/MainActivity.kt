@@ -29,8 +29,8 @@ class MainActivity : ComponentActivity() {
     private val viewModel: ChatViewModel by viewModels {
         val apiKey = secureApiKeyStore.getApiKey()
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = apiKey),
-            chatStorage = RoomChatStorage(ChatDatabase.getInstance(this)),
+            repo = GeminiRepositoryImpl(apiKey = apiKey),
+            storage = RoomChatStorage(ChatDatabase.getInstance(this)),
             hasApiKey = apiKey.isNotBlank(),
         )
     }

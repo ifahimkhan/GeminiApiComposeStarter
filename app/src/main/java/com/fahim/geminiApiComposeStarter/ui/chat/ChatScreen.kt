@@ -96,7 +96,7 @@ private const val VOICE_INPUT_DESCRIPTION = "Use voice input"
 private const val LIGHT_MODE_DESCRIPTION = "Switch to light mode"
 private const val DARK_MODE_DESCRIPTION = "Switch to dark mode"
 private const val NEW_CHAT_LABEL = "New chat"
-private val SendButtonBlue = Color(0xFF3B82F6)
+private val SendBlue = Color(0xFF3B82F6)
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
@@ -107,8 +107,8 @@ fun ChatRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val windowSizeClass = calculateWindowSizeClass(context as Activity)
-    val voiceInputLauncher = rememberLauncherForActivityResult(
+    val window = calculateWindowSizeClass(context as Activity)
+    val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -120,7 +120,7 @@ fun ChatRoute(
     }
     ChatScreen(
         state = state,
-        windowWidthSizeClass = windowSizeClass.widthSizeClass,
+        widthClass = window.widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
         onVoiceInput = {
@@ -132,7 +132,7 @@ fun ChatRoute(
                 .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
                 .putExtra(RecognizerIntent.EXTRA_PROMPT, PROMPT_PLACEHOLDER)
             try {
-                voiceInputLauncher.launch(intent)
+                speechLauncher.launch(intent)
             } catch (_: ActivityNotFoundException) {
                 viewModel.showError("Speech recognition is not available on this device.")
             }
@@ -148,7 +148,7 @@ fun ChatRoute(
 @Composable
 fun ChatScreen(
     state: ChatUiState,
-    windowWidthSizeClass: WindowWidthSizeClass,
+    widthClass: WindowWidthSizeClass,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
     onVoiceInput: () -> Unit,
@@ -157,11 +157,11 @@ fun ChatScreen(
     darkTheme: Boolean,
     onToggleTheme: () -> Unit,
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
+        state.errorMessage?.let { snackbar.showSnackbar(it) }
     }
 
     ModalNavigationDrawer(
@@ -191,11 +191,11 @@ fun ChatScreen(
                     onMenuClick = { scope.launch { drawerState.open() } },
                 )
             },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
+            snackbarHost = { SnackbarHost(snackbar) },
         ) { innerPadding ->
             ChatContent(
                 state = state,
-                windowWidthSizeClass = windowWidthSizeClass,
+                widthClass = widthClass,
                 onPromptChange = onPromptChange,
                 onSend = onSend,
                 onVoiceInput = onVoiceInput,
@@ -285,34 +285,34 @@ private fun ChatTopBar(
 @Composable
 private fun ChatContent(
     state: ChatUiState,
-    windowWidthSizeClass: WindowWidthSizeClass,
+    widthClass: WindowWidthSizeClass,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
     onVoiceInput: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    val horizontalPadding = when (windowWidthSizeClass) {
+    val sidePad = when (widthClass) {
         WindowWidthSizeClass.Compact -> 16.dp
         WindowWidthSizeClass.Medium -> 32.dp
         else -> 48.dp
     }
-    val maxContentWidth = when (windowWidthSizeClass) {
+    val maxWidth = when (widthClass) {
         WindowWidthSizeClass.Compact -> 560.dp
         WindowWidthSizeClass.Medium -> 720.dp
         else -> 840.dp
     }
-    val showLoadingBubble = state.isLoading && state.messages.lastOrNull()?.author != ChatAuthor.GEMINI
-    val extraItemCount = when {
-        showLoadingBubble && state.errorMessage != null -> 2
-        showLoadingBubble || state.errorMessage != null -> 1
+    val showLoader = state.isLoading && state.messages.lastOrNull()?.author != ChatAuthor.GEMINI
+    val extraItems = when {
+        showLoader && state.errorMessage != null -> 2
+        showLoader || state.errorMessage != null -> 1
         state.messages.isEmpty() -> 1
         else -> 0
     }
 
-    LaunchedEffect(state.messages.size, showLoadingBubble, state.errorMessage) {
-        val itemCount = state.messages.size + extraItemCount
-        if (itemCount > 0) listState.scrollToItem(itemCount - 1)
+    LaunchedEffect(state.messages.size, showLoader, state.errorMessage) {
+        val count = state.messages.size + extraItems
+        if (count > 0) listState.scrollToItem(count - 1)
     }
 
     Box(
@@ -322,7 +322,7 @@ private fun ChatContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .widthIn(max = maxContentWidth),
+                .widthIn(max = maxWidth),
         ) {
             if (state.messages.isEmpty() && !state.isLoading && state.errorMessage == null) {
                 EmptyChatMessage(
@@ -337,7 +337,7 @@ private fun ChatContent(
                         .weight(1f)
                         .fillMaxWidth(),
                     contentPadding = PaddingValues(
-                        horizontal = horizontalPadding,
+                        horizontal = sidePad,
                         vertical = 20.dp,
                     ),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -348,10 +348,10 @@ private fun ChatContent(
                     ) { message ->
                         ChatBubble(
                             message = message,
-                            windowWidthSizeClass = windowWidthSizeClass,
+                            widthClass = widthClass,
                         )
                     }
-                    if (showLoadingBubble) {
+                    if (showLoader) {
                         item(key = "loading") { LoadingBubble() }
                     }
                     state.errorMessage?.let { message ->
@@ -364,7 +364,7 @@ private fun ChatContent(
                 prompt = state.prompt,
                 promptError = state.promptError,
                 enabled = !state.isLoading,
-                horizontalPadding = horizontalPadding,
+                sidePad = sidePad,
                 onPromptChange = onPromptChange,
                 onSend = onSend,
                 onVoiceInput = onVoiceInput,
@@ -376,11 +376,11 @@ private fun ChatContent(
 @Composable
 private fun ChatBubble(
     message: ChatMessage,
-    windowWidthSizeClass: WindowWidthSizeClass,
+    widthClass: WindowWidthSizeClass,
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.author == ChatAuthor.USER
-    val maxUserBubbleWidth = when (windowWidthSizeClass) {
+    val maxUserWidth = when (widthClass) {
         WindowWidthSizeClass.Compact -> 280.dp
         WindowWidthSizeClass.Medium -> 420.dp
         else -> 520.dp
@@ -392,7 +392,7 @@ private fun ChatBubble(
     ) {
         if (isUser) {
             Surface(
-                modifier = Modifier.widthIn(max = maxUserBubbleWidth),
+                modifier = Modifier.widthIn(max = maxUserWidth),
                 shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp,
@@ -554,7 +554,7 @@ private fun PromptBar(
     prompt: String,
     promptError: PromptError?,
     enabled: Boolean,
-    horizontalPadding: Dp,
+    sidePad: Dp,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
     onVoiceInput: () -> Unit,
@@ -564,7 +564,7 @@ private fun PromptBar(
             .fillMaxWidth()
             .navigationBarsPadding()
             .background(MaterialTheme.colorScheme.background)
-            .padding(start = horizontalPadding, end = horizontalPadding, top = 12.dp, bottom = 8.dp),
+            .padding(start = sidePad, end = sidePad, top = 12.dp, bottom = 8.dp),
     ) {
         Surface(
             modifier = Modifier
@@ -627,7 +627,7 @@ private fun PromptBar(
                         enabled = enabled,
                         modifier = Modifier.size(40.dp),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = SendButtonBlue,
+                            containerColor = SendBlue,
                             contentColor = Color.White,
                             disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                             disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -656,7 +656,7 @@ private fun ChatScreenPreview() {
                     ChatMessage(2, "Use **LazyColumn** with stable keys and hoisted state.", ChatAuthor.GEMINI),
                 ),
             ),
-            windowWidthSizeClass = WindowSizeClass
+            widthClass = WindowSizeClass
                 .calculateFromSize(DpSize(width = 390.dp, height = 844.dp))
                 .widthSizeClass,
             onPromptChange = {},

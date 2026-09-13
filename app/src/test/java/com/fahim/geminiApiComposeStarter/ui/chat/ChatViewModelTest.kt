@@ -37,8 +37,8 @@ class ChatViewModelTest {
     @Test
     fun initializesWithNewChatWhenStorageIsEmpty() = runTest(dispatcher) {
         val viewModel = ChatViewModel(
-            repository = FakeGeminiRepository("unused"),
-            chatStorage = FakeChatStorage(),
+            repo = FakeGeminiRepository("unused"),
+            storage = FakeChatStorage(),
             hasApiKey = true,
         )
 
@@ -53,8 +53,8 @@ class ChatViewModelTest {
     @Test
     fun emptyPromptShowsValidationError() = runTest(dispatcher) {
         val viewModel = ChatViewModel(
-            repository = FakeGeminiRepository("unused"),
-            chatStorage = FakeChatStorage(),
+            repo = FakeGeminiRepository("unused"),
+            storage = FakeChatStorage(),
             hasApiKey = true,
         )
         advanceUntilIdle()
@@ -66,10 +66,10 @@ class ChatViewModelTest {
 
     @Test
     fun sendStreamsGeminiResponseAndPersistsChat() = runTest(dispatcher) {
-        val chatStorage = FakeChatStorage()
+        val storage = FakeChatStorage()
         val viewModel = ChatViewModel(
-            repository = FakeGeminiRepository("Hi there"),
-            chatStorage = chatStorage,
+            repo = FakeGeminiRepository("Hi there"),
+            storage = storage,
             hasApiKey = true,
         )
         advanceUntilIdle()
@@ -85,7 +85,7 @@ class ChatViewModelTest {
         assertEquals("Hi there", state.messages[1].text)
         assertEquals(ChatAuthor.GEMINI, state.messages[1].author)
         assertEquals("Hello", state.chatSummaries.first().title)
-        assertEquals(2, chatStorage.savedChats.first().messages.size)
+        assertEquals(2, storage.savedChats.first().messages.size)
     }
 }
 

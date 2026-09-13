@@ -17,28 +17,28 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ChatViewModel(
-    private val repository: GeminiRepository,
-    private val chatStorage: ChatStorage,
+    private val repo: GeminiRepository,
+    private val storage: ChatStorage,
     private val hasApiKey: Boolean,
 ) : ViewModel() {
 
-    private var storedChats: List<StoredChat> = emptyList()
+    private var savedChats: List<StoredChat> = emptyList()
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
-    private var nextMessageId = 0L
-    private var isInitialized = false
+    private var nextId = 0L
+    private var ready = false
 
     init {
         viewModelScope.launch {
-            storedChats = chatStorage.loadChats().ifEmpty { listOf(ChatDefaults.newChat()) }
-            val activeChatId = chatStorage.loadActiveChatId()
-                ?.takeIf { activeId -> storedChats.any { it.id == activeId } }
-                ?: storedChats.first().id
-            nextMessageId = storedChats.maxOfOrNull { chat ->
+            savedChats = storage.loadChats().ifEmpty { listOf(ChatDefaults.newChat()) }
+            val activeId = storage.loadActiveChatId()
+                ?.takeIf { id -> savedChats.any { it.id == id } }
+                ?: savedChats.first().id
+            nextId = savedChats.maxOfOrNull { chat ->
                 chat.messages.maxOfOrNull { message -> message.id } ?: -1L
             }?.plus(1L) ?: 0L
-            _uiState.value = storedChats.toUiState(activeChatId)
-            isInitialized = true
+            _uiState.value = savedChats.toUiState(activeId)
+            ready = true
             saveChats()
         }
     }
@@ -52,22 +52,22 @@ class ChatViewModel(
     }
 
     fun onNewChat() {
-        if (!isInitialized || _uiState.value.isLoading) return
-        val newChat = ChatDefaults.newChat()
-        storedChats = listOf(newChat) + storedChats
-        _uiState.value = storedChats.toUiState(newChat.id)
+        if (!ready || _uiState.value.isLoading) return
+        val chat = ChatDefaults.newChat()
+        savedChats = listOf(chat) + savedChats
+        _uiState.value = savedChats.toUiState(chat.id)
         saveChats()
     }
 
     fun onSelectChat(chatId: String) {
-        if (!isInitialized || _uiState.value.isLoading || chatId == _uiState.value.activeChatId) return
-        if (storedChats.none { it.id == chatId }) return
-        _uiState.value = storedChats.toUiState(chatId)
+        if (!ready || _uiState.value.isLoading || chatId == _uiState.value.activeChatId) return
+        if (savedChats.none { it.id == chatId }) return
+        _uiState.value = savedChats.toUiState(chatId)
         saveChats()
     }
 
     fun onSend() {
-        if (!isInitialized) return
+        if (!ready) return
         val prompt = _uiState.value.prompt.trim()
         if (prompt.isEmpty()) {
             _uiState.update { it.copy(promptError = PromptError.EMPTY) }
@@ -80,15 +80,15 @@ class ChatViewModel(
         if (_uiState.value.isLoading) return
 
         val history = _uiState.value.messages.map { it.toConversationMessage() }
-        val userMessage = ChatMessage(
-            id = nextMessageId++,
+        val userMsg = ChatMessage(
+            id = nextId++,
             text = prompt,
             author = ChatAuthor.USER,
         )
         _uiState.update {
             it.copy(
                 prompt = "",
-                messages = it.messages + userMessage,
+                messages = it.messages + userMsg,
                 isLoading = true,
                 errorMessage = null,
                 promptError = null,
@@ -96,25 +96,25 @@ class ChatViewModel(
         }
         persistActiveChat()
         viewModelScope.launch {
-            var streamedAnyText = false
+            var gotText = false
             var failed = false
-            val geminiMessageId = nextMessageId++
+            val replyId = nextId++
 
-            repository.generateTextStream(prompt, history).collect { result ->
+            repo.generateTextStream(prompt, history).collect { result ->
                 result.fold(
                     onSuccess = { chunk ->
-                        streamedAnyText = true
+                        gotText = true
                         _uiState.update { state ->
-                            val existingMessage = state.messages.firstOrNull { it.id == geminiMessageId }
-                            val messages = if (existingMessage == null) {
+                            val reply = state.messages.firstOrNull { it.id == replyId }
+                            val messages = if (reply == null) {
                                 state.messages + ChatMessage(
-                                    id = geminiMessageId,
+                                    id = replyId,
                                     text = chunk,
                                     author = ChatAuthor.GEMINI,
                                 )
                             } else {
                                 state.messages.map { message ->
-                                    if (message.id == geminiMessageId) {
+                                    if (message.id == replyId) {
                                         message.copy(text = message.text + chunk)
                                     } else {
                                         message
@@ -142,7 +142,7 @@ class ChatViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = if (streamedAnyText) null else "Empty response from Gemini",
+                        errorMessage = if (gotText) null else "Empty response from Gemini",
                     )
                 }
                 persistActiveChat()
@@ -152,11 +152,11 @@ class ChatViewModel(
 
     private fun persistActiveChat() {
         val state = _uiState.value
-        val title = storedChats.firstOrNull { it.id == state.activeChatId }?.title
+        val title = savedChats.firstOrNull { it.id == state.activeChatId }?.title
             ?.takeUnless { it == ChatDefaults.NEW_CHAT_TITLE }
             ?: state.messages.firstOrNull { it.author == ChatAuthor.USER }?.text?.toChatTitle()
             ?: ChatDefaults.NEW_CHAT_TITLE
-        storedChats = storedChats.map { chat ->
+        savedChats = savedChats.map { chat ->
             if (chat.id == state.activeChatId) {
                 chat.copy(
                     title = title,
@@ -166,14 +166,14 @@ class ChatViewModel(
                 chat
             }
         }
-        _uiState.update { it.copy(chatSummaries = storedChats.toSummaries()) }
+        _uiState.update { it.copy(chatSummaries = savedChats.toSummaries()) }
         saveChats()
     }
 
     private fun saveChats() {
-        val activeChatId = _uiState.value.activeChatId
-        if (activeChatId.isBlank()) return
-        viewModelScope.launch { chatStorage.saveChats(storedChats, activeChatId) }
+        val activeId = _uiState.value.activeChatId
+        if (activeId.isBlank()) return
+        viewModelScope.launch { storage.saveChats(savedChats, activeId) }
     }
 
     private fun ChatMessage.toConversationMessage(): ConversationMessage = ConversationMessage(
@@ -202,8 +202,8 @@ class ChatViewModel(
         },
     )
 
-    private fun List<StoredChat>.toUiState(activeChatId: String): ChatUiState {
-        val activeChat = first { it.id == activeChatId }
+    private fun List<StoredChat>.toUiState(activeId: String): ChatUiState {
+        val activeChat = first { it.id == activeId }
         return ChatUiState(
             activeChatId = activeChat.id,
             chatSummaries = toSummaries(),
@@ -224,11 +224,11 @@ class ChatViewModel(
         const val MISSING_API_KEY_MESSAGE =
             "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
 
-        fun factory(repository: GeminiRepository, chatStorage: ChatStorage, hasApiKey: Boolean) =
+        fun factory(repo: GeminiRepository, storage: ChatStorage, hasApiKey: Boolean) =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ChatViewModel(repository, chatStorage, hasApiKey) as T
+                    ChatViewModel(repo, storage, hasApiKey) as T
             }
     }
 }

@@ -32,7 +32,7 @@ class ChatScreenTest {
                             ChatMessage(2, "Hi from Gemini", ChatAuthor.GEMINI),
                         ),
                     ),
-                    windowWidthSizeClass = WindowWidthSizeClass.Compact,
+                    widthClass = WindowWidthSizeClass.Compact,
                     onPromptChange = {},
                     onSend = { sendClicked = true },
                     onVoiceInput = { voiceClicked = true },
