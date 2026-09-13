@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
+import com.fahim.geminiApiComposeStarter.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,8 +19,29 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            repository.getMessages().collect { messages ->
+                _uiState.update { it.copy(messages = messages) }
+            }
+        }
+        viewModelScope.launch {
+            repository.getThemeMode().collect { themeMode ->
+                _uiState.update { it.copy(themeMode = themeMode) }
+            }
+        }
+    }
+
     fun onPromptChange(value: String) {
         _uiState.update { it.copy(prompt = value, promptError = null) }
+    }
+
+    fun onSpeechResult(spokenText: String) {
+        if (spokenText.isNotBlank()) {
+            val currentPrompt = _uiState.value.prompt
+            val updatedPrompt = if (currentPrompt.isBlank()) spokenText else "$currentPrompt $spokenText"
+            _uiState.update { it.copy(prompt = updatedPrompt, promptError = null) }
+        }
     }
 
     fun onSend() {
@@ -34,11 +56,11 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        _uiState.update { it.copy(prompt = "", isLoading = true, errorMessage = null, promptError = null) }
         viewModelScope.launch {
-            repository.generateText(prompt).fold(
-                onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+            repository.sendMessage(prompt).fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isLoading = false) }
                 },
                 onFailure = { error ->
                     _uiState.update {
@@ -50,6 +72,31 @@ class ChatViewModel(
                 },
             )
         }
+    }
+
+    fun onClearHistory() {
+        viewModelScope.launch {
+            repository.clearHistory()
+        }
+    }
+
+    fun onThemeModeChange(themeMode: ThemeMode) {
+        viewModelScope.launch {
+            repository.setThemeMode(themeMode)
+        }
+    }
+
+    fun onCycleThemeMode() {
+        val nextMode = when (_uiState.value.themeMode) {
+            ThemeMode.SYSTEM -> ThemeMode.DARK
+            ThemeMode.DARK -> ThemeMode.LIGHT
+            ThemeMode.LIGHT -> ThemeMode.SYSTEM
+        }
+        onThemeModeChange(nextMode)
+    }
+
+    fun onDismissError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     companion object {
