@@ -1,0 +1,7 @@
+# Copy to local.properties and fill in your own key.
+# local.properties is git-ignored — never commit it.
+# Get a key: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_api_key_here
+
+# sdk.dir is written automatically by Android Studio, e.g.
+# sdk.dir=/Users/you/Library/Android/sdk
