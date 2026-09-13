@@ -1,0 +1,4 @@
+# Template for local.properties
+# Copy this file to local.properties and replace your_api_key_here with your actual Gemini API key.
+# Never commit local.properties containing real credentials to version control.
+GEMINI_API_KEY=your_api_key_here
