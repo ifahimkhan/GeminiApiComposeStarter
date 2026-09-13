@@ -1,7 +1,12 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
-    <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="app_name">C020_Harsh_Assignment1</string>
+    <string name="chat_title">Gemini AI Chat</string>
+    <string name="student_info">Harsh Baniya • C020</string>
+    <string name="prompt_label">Enter your prompt</string>
+    <string name="send_description">Send</string>
+    <string name="mic_description">Voice Input</string>
+    <string name="clear_history_description">Clear History</string>
+    <string name="loading_message">Gemini is thinking...</string>
+    <string name="empty_error">Field cannot be empty</string>
+    <string name="welcome_message">Hello Harsh! 👋\n\nAsk me anything and Gemini will respond. Your chat history is saved securely.</string>
 </resources>
