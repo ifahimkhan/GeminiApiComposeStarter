@@ -1,0 +1,5 @@
+# This is an example local.properties file.
+# You must create a local.properties file in the root directory
+# and add your Gemini API key like this:
+# GEMINI_API_KEY=your_api_key_here
+GEMINI_API_KEY=your_api_key_here
