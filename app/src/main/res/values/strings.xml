@@ -1,7 +1,27 @@
 <resources>
     <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="user_name">Vansh Mehta - C037</string>
+    <string name="enter_your_prompt_here">Type a message…</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
+    <string name="response_placeholder">Ask me anything to get started</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="generating_response">Thinking…</string>
+    <string name="voice_input">Voice input</string>
+    <string name="listening_prompt">Listening…</string>
+    <string name="listening_active">Listening… speak now</string>
+    <string name="mic_permission_denied">Microphone permission is required for voice input.</string>
+    <string name="speech_recognition_unavailable">Speech recognition is not available on this device.</string>
+    <string name="speech_no_match">Didn\'t catch that. Try again.</string>
+    <string name="speech_error">Voice input failed. Try again.</string>
+    <string name="settings">Settings</string>
+    <string name="compact_bubbles">Compact bubbles</string>
+    <string name="welcome_greeting">Hi, how can I help?</string>
+    <string name="welcome_subtitle">Ask a question, or try one of these:</string>
+    <string name="suggestion_1">Explain Kotlin coroutines</string>
+    <string name="suggestion_2">What is Jetpack Compose?</string>
+    <string name="suggestion_3">Difference between Room and DataStore</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
 </resources>

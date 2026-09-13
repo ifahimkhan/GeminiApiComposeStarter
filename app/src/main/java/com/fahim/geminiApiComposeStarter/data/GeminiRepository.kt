@@ -1,6 +1,7 @@
 package com.fahim.geminiApiComposeStarter.data
 
-/** Abstraction over the Gemini text generation call so the ViewModel can be unit tested. */
+import com.fahim.geminiApiComposeStarter.ui.chat.ChatMessage
+
 interface GeminiRepository {
-    suspend fun generateText(prompt: String): Result<String>
+    suspend fun generateReply(conversation: List<ChatMessage>): Result<String>
 }
