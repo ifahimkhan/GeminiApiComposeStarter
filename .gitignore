@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+.idea/
+.kotlin/
+
+C046 assignment1

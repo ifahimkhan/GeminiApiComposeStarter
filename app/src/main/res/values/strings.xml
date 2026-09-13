@@ -1,7 +1,19 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini Assistant</string>
+    <string name="enter_your_prompt_here">Ask Gemini anything...</string>
     <string name="send">Send</string>
+    <string name="voice_input">Voice Input</string>
     <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="field_cannot_be_empty">Prompt cannot be empty</string>
+    <string name="empty_state_title">How can I help you today?</string>
+    <string name="empty_state_subtitle">Ask questions, request summaries, or generate ideas with Gemini.</string>
+    <string name="sample_prompt_1">Explain quantum computing in simple terms</string>
+    <string name="sample_prompt_2">Write a Kotlin function to reverse a string</string>
+    <string name="sample_prompt_3">Give me 3 healthy breakfast ideas</string>
+    <string name="clear_chat">Clear Chat</string>
+    <string name="auto_scroll">Auto-Scroll</string>
+    <string name="dark_mode">Dark Mode</string>
+    <string name="thinking">Gemini is thinking...</string>
+    <string name="speech_not_supported">Speech recognition is not available on this device.</string>
+    <string name="mic_permission_required">Microphone permission is required for voice input.</string>
 </resources>
