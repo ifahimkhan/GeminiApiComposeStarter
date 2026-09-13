@@ -1,31 +1,73 @@
 package com.fahim.geminiApiComposeStarter.data
 
 import android.util.Log
+import com.fahim.geminiApiComposeStarter.data.security.ApiKeyStore
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
 
 private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-3.6-flash"
+private const val DEFAULT_MODEL = "gemini-2.5-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val apiKeyStore: ApiKeyStore,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    private var model: GenerativeModel? = null
+    private var chat: com.google.ai.client.generativeai.Chat? = null
 
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
+    private suspend fun getChat(): com.google.ai.client.generativeai.Chat {
+
+        if (chat != null) {
+            return chat!!
+        }
+
+        val apiKey = apiKeyStore.getApiKey()
+            ?: throw IllegalStateException(
+                "Gemini API key is missing."
+            )
+
+        model = GenerativeModel(
+            modelName = modelName,
+            apiKey = apiKey
+        )
+
+        chat = model!!.startChat()
+
+        return chat!!
+    }
+
+    override suspend fun generateText(
+        prompt: String
+    ): Result<String> = try {
+
+        val response = getChat().sendMessage(prompt)
+
+        val text = response.text
+            ?.takeIf { it.isNotBlank() }
+
         if (text != null) {
             Result.success(text)
         } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
+            Result.failure(
+                IllegalStateException(
+                    "Empty response from Gemini"
+                )
+            )
         }
+
     } catch (e: CancellationException) {
+
         throw e
+
     } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
+
+        Log.e(
+            TAG,
+            "generateText failed",
+            e
+        )
+
         Result.failure(e)
     }
 }
