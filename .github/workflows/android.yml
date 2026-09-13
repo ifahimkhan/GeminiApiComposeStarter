@@ -1,0 +1,43 @@
+name: Android CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # No local.properties on CI: build.gradle.kts falls back to this environment
+      # variable, which is stored as a repository secret.
+      - name: Unit tests
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: ./gradlew testDebugUnitTest
+
+      - name: Assemble debug
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: ./gradlew assembleDebug
+
+      - name: Guard against a leaked key
+        run: |
+          if git ls-files --error-unmatch local.properties 2>/dev/null; then
+            echo "::error::local.properties is tracked by git"
+            exit 1
+          fi
+          if git grep -nE '(AIza[0-9A-Za-z_-]{30,}|AQ\.[A-Za-z0-9_-]{20,})' -- . ':!*.md' ':!*.yml'; then›
+            echo "::error::a Google API key pattern was found in the source tree"
+            exit 1
+          fi
+          echo "No key material found in tracked files."
