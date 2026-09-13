@@ -3,16 +3,25 @@ package com.fahim.geminiApiComposeStarter.data
 import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 
 private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-3.6-flash"
+private const val DEFAULT_MODEL = "gemini-1.5-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
+    private val chatDao: ChatDao,
+    private val securityManager: SecurityManager,
+    private val fallbackApiKey: String,
     modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    private val model: GenerativeModel by lazy {
+        val key = securityManager.getApiKey() ?: run {
+            securityManager.saveApiKey(fallbackApiKey)
+            fallbackApiKey
+        }
+        GenerativeModel(modelName = modelName, apiKey = key)
+    }
 
     override suspend fun generateText(prompt: String): Result<String> = try {
         val response = model.generateContent(prompt)
@@ -27,5 +36,15 @@ class GeminiRepositoryImpl(
     } catch (e: Exception) {
         Log.e(TAG, "generateContent failed", e)
         Result.failure(e)
+    }
+
+    override fun getChatHistory(): Flow<List<ChatEntity>> = chatDao.getAllMessages()
+
+    override suspend fun saveMessage(role: String, content: String) {
+        chatDao.insertMessage(ChatEntity(role = role, content = content))
+    }
+
+    override suspend fun clearHistory() {
+        chatDao.clearHistory()
     }
 }
