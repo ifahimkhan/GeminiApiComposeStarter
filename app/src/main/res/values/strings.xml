@@ -4,4 +4,6 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice Input</string>
+    <string name="speak_now">Speak now...</string>
 </resources>
