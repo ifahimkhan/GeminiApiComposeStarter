@@ -23,10 +23,31 @@ what to add and where.
 
 ### Requirements
 
-Android Studio with AGP 9, JDK 17, `minSdk` 26.
+Android Studio with AGP 9, Gradle 9.1.0+, JDK 17, `minSdk` 26. Room's annotation
+processing uses KSP 2.3.10, which is independent of the Kotlin version.
 
-> If KSP (used by Room) complains on first sync, add `ksp.useKSP2=true` to
-> `gradle.properties`. AGP 9's built-in Kotlin support needs KSP2 rather than KSP1.
+### Model choice
+
+The app targets `gemini-2.5-flash`, set in `data/GeminiRepositoryImpl.kt`.
+
+The starter pinned `gemini-3.6-flash`, which fails at runtime with this SDK. Responses from
+3.x models include fields the client cannot parse — `thoughtSignature` on each part, and
+`thoughtsTokenCount` and `serviceTier` in `usageMetadata` — none of which existed when
+`com.google.ai.client.generativeai:generativeai:0.9.0` was written. The HTTP call returns 200
+and deserialisation then throws, which surfaces as a request that spins and silently fails.
+`gemini-2.5-flash` is contemporary with the SDK, emits no thought signatures, and costs far
+fewer tokens per turn: "say hello in five words" used 354 thinking tokens on 3.6-flash for a
+7-token answer.
+
+### Fixes to the starter
+
+Three defects in the upstream repository were fixed here:
+
+- `gradle/wrapper/gradle-wrapper.jar` was not committed, so `./gradlew` could not run. The
+  wrapper has been regenerated and `gradlew` committed with its executable bit set.
+- `ChatScreen.kt` referenced `R.drawable.ic_assistant`, which did not exist in `res/drawable`,
+  so the project did not compile as cloned. The drawable has been added.
+- The pinned model was incompatible with the bundled SDK, as described above.
 
 ---
 
@@ -124,6 +145,42 @@ data        GeminiRepository  ChatHistoryRepository  UserPreferencesRepository  
             ApiKeyStore → crypto/KeystoreCipher
 GeminiApp   AppContainer — hand-rolled DI, every dependency swappable for a fake
 ```
+
+### Screenshots
+
+| | |
+|---|---|
+| ![Empty state](docs/screenshots/01-empty-state.png) | ![Conversation](docs/screenshots/02-conversation.png) |
+| **Empty state** — placeholder before the first turn | **Conversation** — user and Gemini bubbles with role labels |
+| ![Loading](docs/screenshots/03-loading.png) | ![Error](docs/screenshots/04-error-snackbar.png) |
+| **Loading** — typing bubble while the request is in flight | **Error** — snackbar with a Retry action |
+| ![Dark mode](docs/screenshots/05-dark-mode.png) | ![Voice input](docs/screenshots/07-voice-input.png) |
+| **Dark mode** — explicit override from the top bar | **Voice input** — system speech recogniser |
+
+![Landscape](docs/screenshots/06-landscape.png)
+
+**Responsive layout** — landscape crosses into the Medium width class, so the conversation is
+capped and centred and bubbles take a smaller share of the width.
+
+### Encryption at rest, verified on device
+
+```
+$ adb shell run-as com.fahim.geminiApiComposeStarter \
+    cat files/datastore/gemini_settings.preferences_pb | strings
+
+gemini_api_key_ciphertext
+^*\WJK49ZM1PJMeY3/VGq5/+99wDZk5uT3r4JlIpBpC7cm7vzEUvGqdevpMko7jVXfvFiGxJ41EAqbS6vs28cqwJIFzqalO
+gemini_api_key_iv
+DV2xjG57ituR1OHH
+theme_mode
+DARK
+```
+
+![DataStore contents](docs/screenshots/08-datastore-dump.png)
+
+Only the ciphertext and the GCM IV are persisted. The plaintext key appears nowhere in the
+app's private storage. `theme_mode` is stored in the clear alongside it, which is intended —
+preferences are not secrets, and its presence confirms the dump is reading the real file.
 
 ---
 

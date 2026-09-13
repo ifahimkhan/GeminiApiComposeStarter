@@ -36,7 +36,7 @@ jobs:
             echo "::error::local.properties is tracked by git"
             exit 1
           fi
-          if git grep -nE 'AIza[0-9A-Za-z_-]{30,}' -- . ':!*.md' ':!*.yml'; then
+          if git grep -nE '(AIza[0-9A-Za-z_-]{30,}|AQ\.[A-Za-z0-9_-]{20,})' -- . ':!*.md' ':!*.yml'; then›
             echo "::error::a Google API key pattern was found in the source tree"
             exit 1
           fi
