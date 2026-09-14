@@ -1,4 +1,4 @@
-# Gemini Compose Chat
+<img width="408" height="908" alt="importfiles-2" src="https://github.com/user-attachments/assets/89559837-68a6-4808-92d5-e8b7767e0a59" /># Gemini Compose Chat
 
 A Jetpack Compose Android chat app built around the Gemini API. The project started as a Gemini chat starter and was extended into a polished ChatGPT-style mobile experience with local chat history, file/image attachments, Markdown rendering, search, voice input, and an experimental voice conversation mode.
 
@@ -6,13 +6,22 @@ The app uses a minimal black-first UI, Material 3 components, Room persistence, 
 
 ## Demo media
 
-Add screenshots and video here:
+DEMO VIDEO : 
+https://github.com/user-attachments/assets/06116dfb-3402-4732-b078-6c8350fa865e
 
-- Screenshot 1: main chat screen
-- Screenshot 2: attachment picker / image preview
-- Screenshot 3: left chat history panel
-- Screenshot 4: search highlights
-- Video: full app walkthrough
+<img width="720" height="1600" alt="mainscreen-1" src="https://github.com/user-attachments/assets/4df38fc8-d594-40fd-8592-fe13b9dea1c8" />
+<img width="408" height="908" alt="importfiles-2" src="https://github.com/user-attachments/assets/d0229963-d4cb-46fd-97cb-bac1ff1977e9" />
+<img width="415" height="903" alt="selectfile-3" src="https://github.com/user-attachments/assets/46eb8a6c-68b0-42b1-8aa2-fe9998cde7ca" />
+<img width="408" height="898" alt="importedpic-4" src="https://github.com/user-attachments/assets/241b6538-9545-41c1-9f49-94ae4c32f358" />
+<img width="410" height="902" alt="prompting-5" src="https://github.com/user-attachments/assets/b14bf724-309f-4e85-b117-fb1809347149" />
+<img width="402" height="903" alt="prompted-6" src="https://github.com/user-attachments/assets/64b0a3a3-aea9-4c84-a727-63332141ad4e" />
+<img width="397" height="903" alt="response-7" src="https://github.com/user-attachments/assets/22dd5f8b-9dfe-4994-9bb9-5a0a7fc7f7d5" />
+<img width="410" height="900" alt="extrafucntionswithresponse-8" src="https://github.com/user-attachments/assets/b9778523-585e-4dc8-ba31-d35728d94e6e" />
+<img width="407" height="906" alt="sidepanel-9" src="https://github.com/user-attachments/assets/997c740f-0a42-495d-815c-da2c30aca48b" />
+<img width="417" height="902" alt="searchfunc-10" src="https://github.com/user-attachments/assets/ed485862-72a2-4c2a-88c3-32c1428b45ed" />
+<img width="407" height="900" alt="searched-11" src="https://github.com/user-attachments/assets/f3da529b-0708-4adf-9638-bfb9c90d48ce" />
+<img width="720" height="1600" alt="voicemode-12" src="https://github.com/user-attachments/assets/30e97e57-cd67-410c-aab4-9231d303bf2f" />
+
 
 ## Main features
 
@@ -38,18 +47,6 @@ Add screenshots and video here:
 - Search inside the current conversation.
 - Matching words in chat results can be highlighted.
 - Chats can be exported/shared as a `.md` Markdown file.
-
-## Attachments and image features
-
-- Attach images from Photos.
-- Attach files from the Android file picker.
-- Capture images from the camera.
-- Selected images show as small previews in the input bar.
-- Sent images appear above the user prompt in the chat.
-- Gemini can answer questions about attached images/files when supported by the selected model.
-- Image generation UI is included with loading/error states.
-
-Note: image generation depends on Google AI Studio model access and quota. If the image model shows `0 / 0` quota in Google AI Studio, image generation will fail even if normal text chat works.
 
 ## Voice features
 
