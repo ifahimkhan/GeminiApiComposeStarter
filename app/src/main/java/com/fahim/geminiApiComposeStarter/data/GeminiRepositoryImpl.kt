@@ -25,7 +25,8 @@ class GeminiRepositoryImpl(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
+        Log.e(TAG, "generateContent failed: ${e.javaClass.name}")
+        Log.e(TAG, "ERROR MESSAGE: ${e.message}", e)
         Result.failure(e)
     }
 }
