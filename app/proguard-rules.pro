@@ -19,3 +19,12 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Gemini API key hardening --------------------------------------------------------
+# Keep the generativeai SDK's request/response models: they're deserialized by
+# kotlinx.serialization via reflection and must not be renamed or stripped.
+-keep class com.google.ai.client.generativeai.** { *; }
+-keepclassmembers class com.google.ai.client.generativeai.** { *; }
+
+# Room generates implementations at compile time; keep entities' field names stable.
+-keep class com.fahim.geminiApiComposeStarter.data.local.** { *; }

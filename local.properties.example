@@ -1,0 +1,7 @@
+# Copy this file to `local.properties` (already git-ignored) and fill in your own key.
+# Get a key from Google AI Studio: https://aistudio.google.com/app/apikey
+#
+# local.properties also holds the Android SDK path that Android Studio writes automatically
+# (sdk.dir=...). Do not commit local.properties — it is listed in .gitignore for that reason.
+
+GEMINI_API_KEY=your_api_key_here
