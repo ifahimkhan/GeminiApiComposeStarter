@@ -34,11 +34,28 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        // Append the user message and clear the input field immediately.
+        val userMessage = ChatMessage(text = prompt, isFromUser = true)
+        _uiState.update {
+            it.copy(
+                messages = it.messages + userMessage,
+                prompt = "",
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+            )
+        }
+
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    val geminiMessage = ChatMessage(text = text, isFromUser = false)
+                    _uiState.update {
+                        it.copy(
+                            messages = it.messages + geminiMessage,
+                            isLoading = false,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
