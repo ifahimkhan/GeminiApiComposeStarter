@@ -4,4 +4,6 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="speak_your_prompt">Speak your prompt</string>
+    <string name="dynamic_color">Dynamic color</string>
 </resources>

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Optional secret scanner. Enable with: git config core.hooksPath .githooks
+# Requires gitleaks (https://github.com/gitleaks/gitleaks) on PATH; skipped if absent.
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed, skipping secret scan" >&2
+  exit 0
+fi
+
+gitleaks protect --staged --verbose
