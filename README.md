@@ -1,110 +1,131 @@
-# Gemini Compose Starter
+# Gemini Compose Chat
 
-An Android Jetpack Compose chat app with a black Material 3 interface, local conversation files, encrypted device-local credentials, and a StateFlow ViewModel.
+A Jetpack Compose Android chat app built around the Gemini API. The project started as a Gemini chat starter and was extended into a polished ChatGPT-style mobile experience with local chat history, file/image attachments, Markdown rendering, search, voice input, and an experimental voice conversation mode.
 
-## Setup
+The app uses a minimal black-first UI, Material 3 components, Room persistence, DataStore settings, and a `StateFlow` based `ChatViewModel`.
 
-1. Open this project in Android Studio and install Android SDK Platform 36.
-2. Use Gradle 9.3.1. The checked-in/local daemon configuration requests JDK 25; install it if automatic provisioning is unavailable.
-3. Sync and run the app on an emulator or device with Android 8 / API 26 or newer.
-4. Open the left drawer, then **Settings**. Enter your own Gemini API key and a model your account supports, then Save.
-5. Type a prompt and send. Internet access is required for Gemini responses.
+## Demo media
 
-The existing model name is retained as the initial setting and can be changed without rebuilding. No API key is compiled into the APK. An old GEMINI_API_KEY entry in local.properties is no longer read; enter the key on the device instead. Keep local.properties for Android Studio's SDK path.
+Add screenshots and video here:
+
+- Screenshot 1: main chat screen
+- Screenshot 2: attachment picker / image preview
+- Screenshot 3: left chat history panel
+- Screenshot 4: search highlights
+- Video: full app walkthrough
+
+## Main features
+
+- ChatGPT-like dark interface with a clean black background and minimal chrome.
+- Material 3 chat layout with right-aligned muted-blue user messages.
+- Gemini responses render as open text on the black background instead of heavy containers.
+- Markdown-style response rendering with formatted prose and separated copyable code/text blocks.
+- Copy, share, and regenerate controls on responses.
+- Loading and error states while Gemini is responding.
+- Haptic feedback on important buttons and interactions.
+- Light/dark mode support through app settings.
+- Responsive Compose layout for different phone sizes and orientations.
+
+## Chat history
+
+- Chats are saved locally on the device using Room.
+- Chat titles are generated from the first user prompt instead of staying as generic names.
+- Left-side ChatGPT-style history panel.
+- Create new chats.
+- Reopen previous chats.
+- Delete chats with confirmation.
+- Search chats from the side panel.
+- Search inside the current conversation.
+- Matching words in chat results can be highlighted.
+- Chats can be exported/shared as a `.md` Markdown file.
+
+## Attachments and image features
+
+- Attach images from Photos.
+- Attach files from the Android file picker.
+- Capture images from the camera.
+- Selected images show as small previews in the input bar.
+- Sent images appear above the user prompt in the chat.
+- Gemini can answer questions about attached images/files when supported by the selected model.
+- Image generation UI is included with loading/error states.
+
+Note: image generation depends on Google AI Studio model access and quota. If the image model shows `0 / 0` quota in Google AI Studio, image generation will fail even if normal text chat works.
+
+## Voice features
+
+- Microphone input can be used to dictate prompts into the text box.
+- Live voice conversation mode is included.
+- Voice mode opens into a dedicated full-screen orb UI.
+- The voice mode attempts automatic listening, short Gemini replies, and text-to-speech playback.
+
+Known limitation: the voice conversation mode is experimental and can feel clunky. It currently uses Android speech recognition, normal Gemini text generation, and Android text-to-speech, so it is not true realtime voice. Latency and occasional failed turns may happen depending on network speed, device speech recognition behavior, and Gemini response time.
+
+## Models
+
+- Text chat uses the editable model name stored in Settings.
+- The current default text model in the project is `gemini-3.6-flash`.
+- Image generation uses `gemini-2.5-flash-image`.
+
+You can change the text model from the in-app Settings dialog.
 
 ## Local data and privacy
 
-- Conversations and drafts are saved atomically as JSON in the app's private no-backup directory. There is no remote chat database and no Room database.
-- The drawer supports New chat, search, reopening a chat, and confirmed deletion. Deletion is permanent.
-- Preferences DataStore stores keyboard preference, selected model, and active conversation.
-- API keys are encrypted using AES-GCM with an Android Keystore key. Ciphertext lives in the no-backup directory.
-- Android cloud backup is disabled for the app. Clearing app data or uninstalling removes local histories and credentials.
-- Gemini requests include the selected conversation's text. Google still processes those messages remotely.
-- Keystore protection improves local storage security; it does not make a user's key invulnerable on a compromised device. This is a bring-your-own-key client, not a way to hide a shared developer key.
+- Conversation history is stored locally in a Room database.
+- Preferences DataStore stores app preferences such as selected model, keyboard behavior, active conversation, and theme choice.
+- The Gemini API key is stored on-device using Android Keystore-backed encryption.
+- Android cloud backup is disabled for app data.
+- Clearing app data or uninstalling the app removes saved chats, preferences, and credentials.
+- Attached/generated media is stored or referenced locally on the device.
 
-## Speech status
+## Setup
 
-The microphone and audio-mode buttons remain disabled. Audio mode is explicitly deferred.
+1. Open the project in Android Studio.
+2. Install the required Android SDK platform if Android Studio asks for it.
+3. Get a Gemini API key from Google AI Studio.
+4. Add your key to `local.properties`:
 
-The requested faster-whisper Python/CTranslate2 runtime does not provide the native Android integration used by this project. whisper.cpp has an official Android example and is the proposed local runtime, pending confirmation. No microphone audio is uploaded or sent to an OS/cloud recognizer.
-
-## UI
-
-- Muted-blue user messages align right.
-- Gemini prose appears directly on black.
-- Triple-backtick code/text blocks have their own container, horizontal scrolling, text selection, and Copy button.
-- Swipe right across the conversation or tap the menu to open the left drawer. Swipe left, tap outside, press Back, or use Close to dismiss.
-- Keyboard-on-launch can be changed in Settings.
-- WindowSizeClass caps wide layouts and simplifies compact-height screens.
-- Requests show loading/error feedback and prevent duplicate sends.
-
-## Build and tests
-
-This checkout lacks gradle/wrapper/gradle-wrapper.jar. Use an installed Gradle 9.3.1 executable directly, or regenerate the wrapper with that installation:
-
-```powershell
-gradle wrapper --gradle-version 9.3.1 --distribution-type bin
+```properties
+GEMINI_API_KEY=your_api_key_here
 ```
 
-After the wrapper is restored:
+5. Sync Gradle.
+6. Run the app on an emulator or Android device.
+
+Internet access is required for Gemini text responses and image generation.
+
+## Running tests
 
 ```powershell
-.\gradlew.bat :app:assembleDebug
 .\gradlew.bat :app:testDebugUnitTest
+```
+
+For connected Android tests:
+
+```powershell
 .\gradlew.bat :app:connectedDebugAndroidTest
 ```
 
-Alternatively replace .\gradlew.bat with your installed Gradle 9.3.1 executable. Device tests need a running emulator or connected Android device. A first run needs network access for test-runner dependencies; offline mode only works once those dependencies are cached.
+## Key implementation files
 
-To run already-built device tests directly:
-
-```powershell
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-adb shell am instrument -w com.fahim.geminiApiComposeStarter.test/androidx.test.runner.AndroidJUnitRunner
-```
-
-Automated tests use fake Gemini responses. They do not consume API quota.
-
-Reports and artifacts:
-
-- Unit report: app/build/reports/tests/testDebugUnitTest/index.html
-- Gradle device-test report: app/build/reports/androidTests/connected/debug/index.html
-- Direct instrumentation results: terminal output
-- Debug APK: app/build/outputs/apk/debug/app-debug.apk
-
-Manual checks:
-
-1. Save a key/model in Settings and send a prompt.
-2. Ask a follow-up that depends on the previous message.
-3. Request a fenced code block and test Copy.
-4. Start another chat, reopen the first, and verify messages and drafts stay separate.
-5. Force-stop and relaunch: confirm history restores.
-6. Search and delete a test conversation, confirming the deletion dialog.
-7. Rotate with the keyboard open and test a narrow/landscape window.
-8. Disable networking, send, and verify an error appears.
-
-## Implementation files
-
-| File | Responsibility |
+| File | Purpose |
 | --- | --- |
-| MainActivity.kt | Wires the repository, file storage, preferences, and key vault. |
-| data/ChatStorage.kt | Conversation model and atomic local JSON persistence. |
-| data/AppPreferences.kt | Preferences DataStore. |
-| data/ApiKeyVault.kt | Android Keystore encryption and credential removal. |
-| data/GeminiRepository.kt | Testable generation contract including conversation context. |
-| data/GeminiRepositoryImpl.kt | Gemini requests using a runtime key and model, with sanitized failures. |
-| ui/chat/ChatUiState.kt | Messages, conversations, restoration, settings, loading, and error state. |
-| ui/chat/ChatViewModel.kt | Restore/save, drafts, chat switching/deletion, settings, and API orchestration. |
-| ui/chat/ChatScreen.kt | Lifecycle collection, drawer, responsive layout, composer, and bubbles. |
-| ui/chat/SettingsDialog.kt | Device-local credential/model/keyboard settings. |
-| ui/chat/ResponseContent.kt | Prose and copyable code/text rendering. |
-| ui/text/ResponseBlocks.kt | Fenced-block parsing. |
-| AndroidManifest.xml | Disables Android backup. |
-| app/build.gradle.kts | Removes embedded credentials; adds DataStore and window-size-class support. |
-| ChatViewModelTest.kt | Validation, requests, history restoration/switching/deletion, IDs, and context. |
-| ResponseBlocksTest.kt | Prose/code separation and incomplete fences. |
-| ChatScreenTest.kt | Drawer gestures, UI feedback, scrolling, and copying. |
-| LocalStorageTest.kt | Real Android file round-trips and Keystore encryption/removal. |
+| `MainActivity.kt` | Wires app dependencies, repository, storage, preferences, and API key vault. |
+| `data/GeminiRepository.kt` | Gemini generation contract. |
+| `data/GeminiRepositoryImpl.kt` | Gemini text, attachment, and image generation requests. |
+| `data/RoomChatStorage.kt` | Room-backed local chat persistence. |
+| `data/AppPreferences.kt` | DataStore settings. |
+| `data/ApiKeyVault.kt` | Android Keystore API key encryption. |
+| `ui/chat/ChatUiState.kt` | Chat screen state models. |
+| `ui/chat/ChatViewModel.kt` | Chat orchestration, sending, regeneration, title generation, history, and voice response handling. |
+| `ui/chat/ChatScreen.kt` | Main Compose chat UI, drawer, composer, bubbles, attachments, search, sharing, and actions. |
+| `ui/chat/LiveVoiceScreen.kt` | Experimental voice conversation mode. |
+| `ui/chat/ResponseContent.kt` | Formatted response rendering and copyable blocks. |
+| `ui/chat/SettingsDialog.kt` | API key/model/theme/settings UI. |
 
-No Gradle, AGP, Kotlin, or Gemini SDK upgrade was required.
+## Current limitations
+
+- Voice conversation mode is not true realtime voice and can have noticeable latency.
+- Image generation requires model access and quota from Google AI Studio.
+- Some attached file types may not be useful to Gemini depending on model support.
+- The app is designed as a student assignment/project prototype, not a production chat client.
+

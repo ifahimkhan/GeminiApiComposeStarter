@@ -271,6 +271,85 @@ class ChatViewModel(
         submit(isImageRequest = false, regenerate = true)
     }
 
+    fun saveLiveVoiceSession(turns: List<LiveTurn>) {
+        if (turns.isEmpty()) return
+        
+        val newChatId = java.util.UUID.randomUUID().toString()
+        val chatMessages = turns.flatMap { turn ->
+            listOf(
+                ChatMessage(id = System.nanoTime(), role = ChatRole.USER, text = turn.userText),
+                ChatMessage(id = System.nanoTime() + 1, role = ChatRole.GEMINI, text = turn.modelText)
+            )
+        }
+        
+        _uiState.update { state ->
+            val newConv = Conversation(
+                id = newChatId,
+                title = "Live Voice Session",
+                messages = chatMessages,
+                draft = ""
+            )
+            state.copy(
+                activeId = newChatId,
+                activeTitle = newConv.title,
+                messages = chatMessages,
+                prompt = "",
+                pendingAttachments = emptyList(),
+                conversations = state.conversations + newConv
+            )
+        }
+        
+        persist()
+        
+        viewModelScope.launch {
+            try {
+                var generatedTitle = ""
+                val prompt = turns.first().userText
+                val titlePrompt = "Provide a short 3-5 word title for a discussion starting with this prompt: ${prompt.take(500)}"
+                repository.generateTextStream(titlePrompt).collect { chunk ->
+                    generatedTitle += chunk
+                }
+                val cleanTitle = generatedTitle.replace("\"", "").trim()
+                if (cleanTitle.isNotBlank()) {
+                    _uiState.update { 
+                        if (it.activeId == newChatId) it.copy(activeTitle = cleanTitle) else it 
+                    }
+                    persist()
+                }
+            } catch (e: Exception) {
+                // Ignore, fallback title will be used
+            }
+        }
+    }
+
+    suspend fun generateLiveVoiceResponse(history: List<ChatMessage>): String {
+        class VoiceReplyReady : RuntimeException()
+        return try {
+            val responseText = StringBuilder()
+            val latestUser = history.lastOrNull { it.role == ChatRole.USER }?.text.orEmpty()
+            val voicePrompt = """
+                You are in a live voice conversation. Reply immediately and naturally.
+                Keep it to one short sentence unless the user explicitly asks for detail.
+
+                User: $latestUser
+            """.trimIndent()
+            try {
+                repository.generateTextStream(voicePrompt).collect { chunk ->
+                    responseText.append(chunk)
+                    val text = responseText.toString().trim()
+                    val sentenceEnd = text.indexOfAny(charArrayOf('.', '!', '?'))
+                    if (sentenceEnd >= 24 || text.length >= 120) throw VoiceReplyReady()
+                }
+            } catch (_: VoiceReplyReady) {
+                // We only need the first natural spoken sentence for voice mode responsiveness.
+            }
+            responseText.toString().trim().takeIf { it.isNotBlank() }
+                ?: "I heard you, but I need a second. Try saying that again."
+        } catch (e: Exception) {
+            "I’m having trouble reaching Gemini right now."
+        }
+    }
+
     companion object {
         private const val MAX_ATTACHMENTS = 5
         const val MISSING_API_KEY_MESSAGE = "Add your Gemini API key in Settings before sending."

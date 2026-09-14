@@ -129,25 +129,44 @@ private fun rememberHapticTap(): () -> Unit {
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showLiveVoice by remember { mutableStateOf(false) }
+
     // Wrap the entire composition with the theme so toggling dark/light applies immediately
     com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme(
         darkTheme = state.darkMode,
         dynamicColor = false
     ) {
-        ChatScreen(
-            state = state,
-            onPromptChange = viewModel::onPromptChange,
-            onSend = viewModel::onSend,
-            autoFocus = state.openKeyboard,
-            onNewChat = viewModel::newChat,
-            onSelectChat = viewModel::selectChat,
-            onDeleteChat = viewModel::deleteChat,
-            onSaveSettings = viewModel::saveSettings,
-            onAttachmentsAdded = viewModel::addAttachments,
-            onAttachmentRemoved = viewModel::removeAttachment,
-            onRegenerate = viewModel::onRegenerateLast,
-            onStopGenerating = viewModel::stopGenerating
-        )
+        if (showLiveVoice) {
+            LiveVoiceScreen(
+                state = state,
+                onDismiss = { showLiveVoice = false },
+                onSessionComplete = { turns ->
+                    showLiveVoice = false
+                    viewModel.saveLiveVoiceSession(turns)
+                },
+                onCallGemini = viewModel::generateLiveVoiceResponse,
+                onNewChat = viewModel::newChat,
+                onSelectChat = viewModel::selectChat,
+                onDeleteChat = viewModel::deleteChat,
+                onSaveSettings = viewModel::saveSettings,
+            )
+        } else {
+            ChatScreen(
+                state = state,
+                onPromptChange = viewModel::onPromptChange,
+                onSend = viewModel::onSend,
+                autoFocus = state.openKeyboard,
+                onNewChat = viewModel::newChat,
+                onSelectChat = viewModel::selectChat,
+                onDeleteChat = viewModel::deleteChat,
+                onSaveSettings = viewModel::saveSettings,
+                onAttachmentsAdded = viewModel::addAttachments,
+                onAttachmentRemoved = viewModel::removeAttachment,
+                onRegenerate = viewModel::onRegenerateLast,
+                onStopGenerating = viewModel::stopGenerating,
+                onLiveVoiceStart = { showLiveVoice = true }
+            )
+        }
     }
 }
 
@@ -166,6 +185,7 @@ fun ChatScreen(
     onAttachmentRemoved: (String) -> Unit = {},
     onRegenerate: () -> Unit = {},
     onStopGenerating: () -> Unit = {},
+    onLiveVoiceStart: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var settingsOpen by remember { mutableStateOf(false) }
@@ -363,6 +383,7 @@ fun ChatScreen(
                     onStop = onStopGenerating,
                     onAttachmentsAdded = onAttachmentsAdded,
                     onAttachmentRemoved = onAttachmentRemoved,
+                    onLiveVoiceStart = onLiveVoiceStart,
                     modifier = Modifier
                         .widthIn(max = contentWidth)
                         .fillMaxWidth()
@@ -870,6 +891,7 @@ private fun PromptBar(
     onStop: () -> Unit = {},
     onAttachmentsAdded: (List<PendingAttachment>) -> Unit,
     onAttachmentRemoved: (String) -> Unit,
+    onLiveVoiceStart: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -1203,21 +1225,17 @@ private fun PromptBar(
                             )
                         }
                     }
-                } else {
+                } else if (state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) {
                     // ── Send ──
                     IconButton(
                         onClick = onSend,
-                        enabled = (state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !state.isRestoring && !isListening,
+                        enabled = !state.isRestoring && !isListening,
                         modifier = Modifier.size(38.dp)
                     ) {
                         Box(
                             Modifier
                                 .size(30.dp)
-                                .background(
-                                    if ((state.prompt.isNotBlank() || state.pendingAttachments.isNotEmpty()) && !isListening) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                    CircleShape,
-                                ),
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
@@ -1225,6 +1243,27 @@ private fun PromptBar(
                                 stringResource(R.string.send),
                                 Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                } else {
+                    // ── Live Voice (Decibel Icon replacing Send when empty) ──
+                    IconButton(
+                        onClick = onLiveVoiceStart,
+                        enabled = !state.isRestoring && !isListening,
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(
+                            Modifier
+                                .size(38.dp)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_audio_wave), 
+                                contentDescription = "Live Voice",
+                                modifier = Modifier.size(26.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -1346,7 +1385,7 @@ private fun android.graphics.Bitmap.rotateForExifOrientation(orientation: Int): 
 }
 
 @Composable
-private fun ChatPanel(
+fun ChatPanel(
     state: ChatUiState,
     onClose: () -> Unit,
     onOpenSearch: () -> Unit,

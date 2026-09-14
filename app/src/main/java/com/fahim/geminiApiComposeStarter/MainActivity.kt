@@ -6,15 +6,18 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import com.fahim.geminiApiComposeStarter.data.AppDatabase
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
 import com.fahim.geminiApiComposeStarter.data.ApiKeyVault
 import com.fahim.geminiApiComposeStarter.data.AppPreferences
 import com.fahim.geminiApiComposeStarter.data.FileChatStorage
 import com.fahim.geminiApiComposeStarter.data.GeneratedImageStore
+import com.fahim.geminiApiComposeStarter.data.RoomChatStorage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
@@ -31,11 +34,31 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Room database as the primary storage.
+        val db = AppDatabase.getInstance(applicationContext)
+        val roomStorage = RoomChatStorage(db)
+
+        // One-time migration: if the old JSON file exists, load it and seed Room, then delete it.
+        runBlocking {
+            val legacyFile = File(applicationContext.noBackupFilesDir, "conversations.json")
+            if (legacyFile.exists()) {
+                try {
+                    val legacyStorage = FileChatStorage(applicationContext)
+                    val legacyConversations = legacyStorage.load()
+                    if (legacyConversations.isNotEmpty()) {
+                        roomStorage.save(legacyConversations)
+                    }
+                } catch (_: Exception) { /* ignore migration failures */ } finally {
+                    legacyFile.delete()
+                }
+            }
+        }
+
         ChatViewModel.factory(
             repository = GeminiRepositoryImpl(applicationContext, apiKey = { vault.read() },
                 modelName = { runBlocking { preferences.values.first().modelName } }),
             hasApiKey = buildTimeKey.isNotBlank() || runBlocking { vault.read().isNotBlank() },
-            storage = FileChatStorage(applicationContext),
+            storage = roomStorage,
             preferences = preferences,
             vault = vault,
             imageStore = GeneratedImageStore(applicationContext),
@@ -57,3 +80,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
