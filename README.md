@@ -1,4 +1,3 @@
-<img width="408" height="908" alt="importfiles-2" src="https://github.com/user-attachments/assets/89559837-68a6-4808-92d5-e8b7767e0a59" /># Gemini Compose Chat
 
 A Jetpack Compose Android chat app built around the Gemini API. The project started as a Gemini chat starter and was extended into a polished ChatGPT-style mobile experience with local chat history, file/image attachments, Markdown rendering, search, voice input, and an experimental voice conversation mode.
 
