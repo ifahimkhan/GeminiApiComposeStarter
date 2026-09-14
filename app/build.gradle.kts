@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp")
 }
 
 // Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
@@ -10,7 +11,9 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim()
+    ?.takeIf { it.isNotBlank() }
+    ?: System.getenv("GEMINI_API_KEY").orEmpty()
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -36,7 +39,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -54,6 +57,10 @@ android {
 }
 
 dependencies {
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
