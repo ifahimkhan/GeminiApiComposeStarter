@@ -1,6 +1,11 @@
-
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +21,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -26,12 +38,15 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -40,6 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
@@ -49,17 +66,54 @@ fun ChatRoute(viewModel: ChatViewModel) {
         state = state,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onClearChat = viewModel::clearChatHistory,
+        onToggleTheme = viewModel::toggleTheme,
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     state: ChatUiState,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onClearChat: () -> Unit,
+    onToggleTheme: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Speech Recognizer Launcher
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
+            if (spokenText != null) {
+                onPromptChange(spokenText)
+            }
+        }
+    }
+
+    // Permission Launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                putExtra(RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.microphone))
+            }
+            speechLauncher.launch(intent)
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.permission_denied))
+            }
+        }
+    }
 
     // Show errors in a Snackbar.
     LaunchedEffect(state.errorMessage) {
@@ -81,6 +135,36 @@ fun ChatScreen(
         modifier = Modifier
             .fillMaxSize()
             .imePadding(),
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { 
+                    Text(
+                        stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge
+                    ) 
+                },
+                navigationIcon = {
+                    IconButton(onClick = onToggleTheme) {
+                        Icon(
+                            imageVector = if (state.isDarkMode == true) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = stringResource(R.string.theme_toggle)
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onClearChat) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.clear_chat)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            )
+        },
         snackbarHost = {
             SnackbarHost(snackbarHostState)
         },
@@ -129,7 +213,6 @@ fun ChatScreen(
                 }
 
                 // Loading indicator while Gemini is thinking.
-                // Loading indicator while Gemini is thinking.
                 if (state.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier
@@ -148,6 +231,9 @@ fun ChatScreen(
                 enabled = !state.isLoading,
                 onPromptChange = onPromptChange,
                 onSend = onSend,
+                onMicClick = {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
             )
         }
     }
@@ -213,6 +299,7 @@ private fun PromptBar(
     enabled: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onMicClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -229,7 +316,15 @@ private fun PromptBar(
             label = {
                 Text(stringResource(R.string.enter_your_prompt_here))
             },
-            minLines = 3,
+            leadingIcon = {
+                IconButton(onClick = onMicClick, enabled = enabled) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = stringResource(R.string.microphone)
+                    )
+                }
+            },
+            minLines = 1,
             enabled = enabled,
             isError = promptError != null,
             supportingText = promptError?.let {
@@ -277,6 +372,8 @@ private fun ChatScreenPreview() {
             ),
             onPromptChange = {},
             onSend = {},
+            onClearChat = {},
+            onToggleTheme = {},
         )
     }
 }
