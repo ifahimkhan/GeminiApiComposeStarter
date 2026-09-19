@@ -4,4 +4,8 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="clear_chat">Clear chat history</string>
+    <string name="microphone">Voice input</string>
+    <string name="theme_toggle">Toggle dark/light mode</string>
+    <string name="permission_denied">Microphone permission is required for voice input</string>
 </resources>
