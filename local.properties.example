@@ -1,0 +1,5 @@
+# Copy this file to local.properties and put your own key in it.
+# Get a key from https://aistudio.google.com/app/apikey
+# local.properties is git-ignored, so the key never leaves your machine.
+sdk.dir=/path/to/your/Android/sdk
+GEMINI_API_KEY=your_api_key_here

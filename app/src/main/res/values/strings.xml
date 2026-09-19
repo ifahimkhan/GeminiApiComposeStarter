@@ -1,7 +1,10 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini Chat C010</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="speak">Speak</string>
+    <string name="hint">Ask Gemini anything…</string>
+    <string name="empty_title">Start a conversation</string>
+    <string name="empty_sub">Type a message or tap the mic</string>
+    <string name="thinking">Gemini is thinking…</string>
+    <!-- NOTE: the API key is NOT here. It lives in local.properties -->
 </resources>

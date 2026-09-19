@@ -1,0 +1,20 @@
+name: Android CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+
+      # Secret scanning: the build fails if a key ever reaches the diff.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+
+      # The key comes from a repository secret, never from the repo.
+      - name: Build & test
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: ./gradlew assembleDebug testDebugUnitTest --stacktrace
