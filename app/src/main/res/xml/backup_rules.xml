@@ -1,13 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
--->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pre-Android 12 backup rules. The encrypted API key is bound to this device's Keystore, so a
+     restored copy on another device would be undecryptable: keep it out of backups. -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="file" path="datastore/secure_prefs.preferences_pb" />
 </full-backup-content>

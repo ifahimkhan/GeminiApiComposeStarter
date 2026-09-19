@@ -2,6 +2,15 @@
     <string name="app_name">GeminiApiComposeStarter</string>
     <string name="enter_your_prompt_here">Enter your prompt here</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
+    <string name="response_placeholder">Say hi to Gemini! Your conversation will be saved on this device.</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speak_prompt">Speak your prompt</string>
+    <string name="menu">Menu</string>
+    <string name="theme_system">System theme</string>
+    <string name="theme_light">Light theme</string>
+    <string name="theme_dark">Dark theme</string>
+    <string name="dynamic_colour">Dynamic colour</string>
+    <string name="clear_chat">Clear chat</string>
+    <string name="gemini_is_typing">Gemini is thinking</string>
 </resources>
