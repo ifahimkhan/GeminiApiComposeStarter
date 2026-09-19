@@ -1,0 +1,15 @@
+#!/bin/sh
+# Optional secret scanner. Install with:  cp scripts/pre-commit .git/hooks/pre-commit
+# Blocks a commit if local.properties is staged or if the staged diff contains something that
+# looks like a Google API key (they start with "AIza" followed by 35 characters).
+
+if git diff --cached --name-only | grep -qx 'local.properties'; then
+    echo "ERROR: local.properties is staged. Unstage it: git reset HEAD local.properties" >&2
+    exit 1
+fi
+
+if git diff --cached -U0 | grep '^+' | grep -Eq 'AIza[0-9A-Za-z_-]{35}'; then
+    echo "ERROR: the staged changes contain what looks like a Google API key. Commit aborted." >&2
+    exit 1
+fi
+exit 0
