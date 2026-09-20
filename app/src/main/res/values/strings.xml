@@ -2,6 +2,18 @@
     <string name="app_name">GeminiApiComposeStarter</string>
     <string name="enter_your_prompt_here">Enter your prompt here</string>
     <string name="send">Send</string>
+    <string name="voice_input">Voice input</string>
+    <string name="more_options">More options</string>
+    <string name="auto_send_voice">Auto-send voice prompts</string>
+    <string name="dynamic_color">Dynamic colour</string>
+    <string name="clear_history">Clear chat history</string>
+    <string name="speech_prompt">Speak your prompt</string>
+    <string name="mic_permission_denied">Microphone permission is required for voice input.</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="empty_conversation_title">Ask Gemini anything</string>
+    <string name="gemini">Gemini</string>
+    <string name="retry">Retry</string>
+    <string name="configuration_error_title">Configuration required</string>
+    <string name="waiting_for_response">Waiting for a response</string>
 </resources>

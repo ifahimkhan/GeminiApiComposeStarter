@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+.idea/
+gradle/gradle-daemon-jvm.properties
+# Screenshots captured while testing on a device/emulator
+/*.png
