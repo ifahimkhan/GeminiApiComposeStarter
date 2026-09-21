@@ -1,0 +1,6 @@
+# Example local.properties template
+# Copy this file to local.properties and configure your credentials.
+# local.properties is git-ignored and must NEVER be committed.
+
+sdk.dir=PATH_TO_YOUR_ANDROID_SDK
+GEMINI_API_KEY=your_api_key_here
