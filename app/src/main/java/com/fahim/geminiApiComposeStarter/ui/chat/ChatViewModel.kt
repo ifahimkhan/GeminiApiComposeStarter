@@ -4,19 +4,38 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
+import com.fahim.geminiApiComposeStarter.data.local.dao.ChatDao
+import com.fahim.geminiApiComposeStarter.data.local.entity.toChatMessage
+import com.fahim.geminiApiComposeStarter.data.local.entity.toEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChatViewModel(
     private val repository: GeminiRepository,
+    private val chatDao: ChatDao,
     private val hasApiKey: Boolean,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            chatDao.getAllMessages()
+                .map { entities -> entities.map { it.toChatMessage() } }
+                .flowOn(Dispatchers.IO)
+                .collect { domainMessages ->
+                    _uiState.update { it.copy(messages = domainMessages) }
+                }
+        }
+    }
 
     fun onPromptChange(value: String) {
         _uiState.update { it.copy(prompt = value, promptError = null) }
@@ -41,7 +60,6 @@ class ChatViewModel(
 
         _uiState.update {
             it.copy(
-                messages = it.messages + userMessage,
                 prompt = "",
                 isLoading = true,
                 errorMessage = null,
@@ -50,17 +68,21 @@ class ChatViewModel(
         }
 
         viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                chatDao.insertMessage(userMessage.toEntity())
+            }
+
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
                     val modelMessage = ChatMessage(
                         text = text,
                         participant = Participant.MODEL,
                     )
+                    withContext(Dispatchers.IO) {
+                        chatDao.insertMessage(modelMessage.toEntity())
+                    }
                     _uiState.update {
-                        it.copy(
-                            messages = it.messages + modelMessage,
-                            isLoading = false,
-                        )
+                        it.copy(isLoading = false)
                     }
                 },
                 onFailure = { error ->
@@ -79,11 +101,14 @@ class ChatViewModel(
         const val MISSING_API_KEY_MESSAGE =
             "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
 
-        fun factory(repository: GeminiRepository, hasApiKey: Boolean) =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ChatViewModel(repository, hasApiKey) as T
-            }
+        fun factory(
+            repository: GeminiRepository,
+            chatDao: ChatDao,
+            hasApiKey: Boolean,
+        ) = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                ChatViewModel(repository, chatDao, hasApiKey) as T
+        }
     }
 }
