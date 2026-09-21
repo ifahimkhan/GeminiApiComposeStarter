@@ -20,9 +20,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -32,11 +39,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -51,6 +62,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.R
+import com.fahim.geminiApiComposeStarter.data.Author
+import com.fahim.geminiApiComposeStarter.data.ChatMessage
+import com.fahim.geminiApiComposeStarter.data.ThemeMode
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
@@ -59,6 +73,7 @@ object ChatTestTags {
     const val PROMPT_FIELD = "prompt_field"
     const val SEND_BUTTON = "send_button"
     const val LOADING_INDICATOR = "loading_indicator"
+    const val MENU_BUTTON = "menu_button"
 }
 
 private const val LOADING_ITEM_KEY = "loading"
@@ -80,6 +95,8 @@ fun ChatRoute(
         onSend = viewModel::onSend,
         onRetry = viewModel::onRetry,
         onErrorShown = viewModel::onErrorShown,
+        onThemeModeSelected = viewModel::onThemeModeSelected,
+        onClearConversation = viewModel::onClearConversation,
     )
 }
 
@@ -92,6 +109,8 @@ fun ChatScreen(
     onSend: () -> Unit,
     onRetry: () -> Unit,
     onErrorShown: () -> Unit,
+    onThemeModeSelected: (ThemeMode) -> Unit,
+    onClearConversation: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val retryLabel = stringResource(R.string.retry)
@@ -109,6 +128,14 @@ fun ChatScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize().imePadding(),
+        topBar = {
+            ChatTopBar(
+                themeMode = state.themeMode,
+                hasMessages = state.messages.isNotEmpty(),
+                onThemeModeSelected = onThemeModeSelected,
+                onClearConversation = onClearConversation,
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Box(
@@ -138,6 +165,57 @@ fun ChatScreen(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatTopBar(
+    themeMode: ThemeMode,
+    hasMessages: Boolean,
+    onThemeModeSelected: (ThemeMode) -> Unit,
+    onClearConversation: () -> Unit,
+) {
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    TopAppBar(
+        title = { Text(stringResource(R.string.chat_title)) },
+        actions = {
+            IconButton(
+                onClick = { menuOpen = true },
+                modifier = Modifier.testTag(ChatTestTags.MENU_BUTTON),
+            ) {
+                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options))
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.clear_conversation)) },
+                    enabled = hasMessages,
+                    onClick = {
+                        menuOpen = false
+                        onClearConversation()
+                    },
+                )
+                HorizontalDivider()
+                ThemeMode.entries.forEach { mode ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(mode.labelRes())) },
+                        leadingIcon = if (mode == themeMode) {
+                            { Icon(Icons.Default.Check, contentDescription = null) }
+                        } else null,
+                        onClick = {
+                            menuOpen = false
+                            onThemeModeSelected(mode)
+                        },
+                    )
+                }
+            }
+        },
+    )
+}
+
+private fun ThemeMode.labelRes() = when (this) {
+    ThemeMode.SYSTEM -> R.string.theme_system
+    ThemeMode.LIGHT -> R.string.theme_light
+    ThemeMode.DARK -> R.string.theme_dark
 }
 
 private fun contentMaxWidth(widthSizeClass: WindowWidthSizeClass): Dp = when (widthSizeClass) {
@@ -312,6 +390,8 @@ private fun ChatScreenPreview() {
             onSend = {},
             onRetry = {},
             onErrorShown = {},
+            onThemeModeSelected = {},
+            onClearConversation = {},
         )
     }
 }
@@ -327,6 +407,8 @@ private fun ChatScreenTabletPreview() {
             onSend = {},
             onRetry = {},
             onErrorShown = {},
+            onThemeModeSelected = {},
+            onClearConversation = {},
         )
     }
 }
