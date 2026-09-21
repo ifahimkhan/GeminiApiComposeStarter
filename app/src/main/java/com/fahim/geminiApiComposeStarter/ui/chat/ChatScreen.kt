@@ -1,11 +1,18 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -20,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -37,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -47,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
@@ -68,7 +78,43 @@ fun ChatScreen(
     onSetDarkMode: (Boolean) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                val updatedPrompt = if (state.prompt.isBlank()) {
+                    spokenText
+                } else {
+                    "${state.prompt} $spokenText"
+                }
+                onPromptChange(updatedPrompt)
+            }
+        }
+    }
+
+    val onVoiceClick: () -> Unit = {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+            )
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Gemini...")
+        }
+        try {
+            speechLauncher.launch(intent)
+        } catch (e: ActivityNotFoundException) {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar("Speech recognition not available")
+            }
+        }
+    }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
@@ -119,8 +165,19 @@ fun ChatScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 840.dp)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
                 if (state.messages.isEmpty() && !state.isLoading) {
                     Box(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -158,6 +215,7 @@ fun ChatScreen(
                     enabled = !state.isLoading,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onVoiceClick = onVoiceClick,
                 )
             }
         }
@@ -176,7 +234,7 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
                     shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.widthIn(max = 300.dp),
+                    modifier = Modifier.widthIn(max = 560.dp),
                 ) {
                     Text(
                         text = message.text,
@@ -203,7 +261,7 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
                     shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.widthIn(max = 300.dp),
+                    modifier = Modifier.widthIn(max = 560.dp),
                 ) {
                     Text(
                         text = message.text.toBoldAnnotatedString(),
@@ -260,6 +318,7 @@ private fun PromptBar(
     enabled: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoiceClick: () -> Unit = {},
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -277,6 +336,15 @@ private fun PromptBar(
                 { Text(stringResource(R.string.field_cannot_be_empty)) }
             },
         )
+        IconButton(
+            onClick = onVoiceClick,
+            enabled = enabled,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Mic,
+                contentDescription = "Voice input",
+            )
+        }
         FilledIconButton(onClick = onSend, enabled = enabled) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
