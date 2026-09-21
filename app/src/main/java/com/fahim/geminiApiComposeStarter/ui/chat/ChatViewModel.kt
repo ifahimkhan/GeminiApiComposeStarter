@@ -18,6 +18,8 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private var nextMessageId = 0L
+
     fun onPromptChange(value: String) {
         _uiState.update { it.copy(prompt = value, promptError = null) }
     }
@@ -34,11 +36,38 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        _uiState.update {
+            it.copy(
+                messages = it.messages + newMessage(Author.USER, prompt),
+                prompt = "",
+                promptError = null,
+            )
+        }
+        requestReply(prompt)
+    }
+
+    /** Re-sends the last prompt after a failure, without adding a duplicate bubble. */
+    fun onRetry() {
+        val state = _uiState.value
+        if (state.isLoading || !state.canRetry) return
+        requestReply(state.messages.last().text)
+    }
+
+    fun onErrorShown() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    private fun requestReply(prompt: String) {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            messages = it.messages + newMessage(Author.GEMINI, text),
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
@@ -51,6 +80,9 @@ class ChatViewModel(
             )
         }
     }
+
+    private fun newMessage(author: Author, text: String) =
+        ChatMessage(id = nextMessageId++, author = author, text = text)
 
     companion object {
         const val MISSING_API_KEY_MESSAGE =
