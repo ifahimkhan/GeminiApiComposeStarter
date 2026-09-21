@@ -8,24 +8,64 @@ private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val apiKeyProvider: () -> String,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    /*
+     * The API key is requested only when the Gemini model
+     * needs to be created.
+     *
+     * The GenerativeModel is created lazily, so the key
+     * is not accessed until generateText() is actually called.
+     */
+    private val model: GenerativeModel by lazy {
 
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
+        val apiKey = apiKeyProvider()
+
+        GenerativeModel(
+            modelName = modelName,
+            apiKey = apiKey
+        )
+    }
+
+    override suspend fun generateText(
+        prompt: String
+    ): Result<String> = try {
+
+        val response =
+            model.generateContent(prompt)
+
+        val text =
+            response.text?.takeIf {
+                it.isNotBlank()
+            }
+
         if (text != null) {
+
             Result.success(text)
+
         } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
+
+            Result.failure(
+                IllegalStateException(
+                    "Empty response from Gemini"
+                )
+            )
         }
+
     } catch (e: CancellationException) {
+
         throw e
+
     } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
+
+        Log.e(
+            TAG,
+            "generateContent failed",
+            e
+        )
+
         Result.failure(e)
     }
 }
