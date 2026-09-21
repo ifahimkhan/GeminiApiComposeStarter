@@ -8,14 +8,27 @@ private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    /**
+     * Resolves the plaintext API key only at the moment it's needed. In production this
+     * decrypts the Keystore-encrypted key (see [UserPreferencesRepository.resolveApiKey]);
+     * the decrypted value lives only in this in-memory [GenerativeModel] instance and is
+     * never logged or displayed.
+     */
+    private val resolveApiKey: suspend () -> String,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    @Volatile private var cachedModel: GenerativeModel? = null
+
+    private suspend fun getOrCreateModel(): GenerativeModel {
+        cachedModel?.let { return it }
+        val model = GenerativeModel(modelName = modelName, apiKey = resolveApiKey())
+        cachedModel = model
+        return model
+    }
 
     override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
+        val response = getOrCreateModel().generateContent(prompt)
         val text = response.text?.takeIf { it.isNotBlank() }
         if (text != null) {
             Result.success(text)
