@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp) // Added for Room Database compilation
 }
 
 // Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
@@ -10,13 +11,13 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
+// Fallback to environment variable for CI builds if local.properties is empty
 val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+    .ifEmpty { System.getenv("GEMINI_API_KEY") ?: "" }
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.fahim.geminiApiComposeStarter"
@@ -36,7 +37,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true // Enabled R8 obfuscation for release builds as required by lab instructions
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -62,8 +63,30 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+
+    // Lifecycle & Compose Integration
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+
+    // Room Database Components for Chat History Persistence
+    implementation("androidx.room:room-runtime:2.8.4")
+    implementation("androidx.room:room-ktx:2.8.4")
+    ksp("androidx.room:room-compiler:2.8.4")
+
+    // Preferences DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Adaptive Material 3 layouts and voice/send icons
+    implementation("androidx.compose.material3:material3-window-size-class")
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // Google Fonts for Compose
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.7.8")
+
+    // Gemini Google Generative AI SDK
     implementation(libs.google.generativeai)
+
+    // Testing Dependencies
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
