@@ -13,3 +13,14 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Duplicate downloaded starter, IDE state and generated output
+/GeminiApiComposeStarter/
+.idea/
+**/build/
+.kotlin/
+*.apk
+*.aab
+
+# Local Android Studio daemon JDK selection
+/gradle/gradle-daemon-jvm.properties

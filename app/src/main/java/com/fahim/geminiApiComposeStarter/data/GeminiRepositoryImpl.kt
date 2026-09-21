@@ -1,31 +1,64 @@
 package com.fahim.geminiApiComposeStarter.data
 
-import android.util.Log
-import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
-
-private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-3.6-flash"
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val apiKeyProvider: suspend () -> String,
+    private val modelName: String = "gemini-3.6-flash",
 ) : GeminiRepository {
+    override suspend fun generateText(prompt: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val apiKey = apiKeyProvider()
+            val endpoint = "https://generativelanguage.googleapis.com/v1alpha/models/$modelName:generateContent?key=$apiKey"
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+            val body = JSONObject().put(
+                "contents", JSONArray().put(
+                    JSONObject().put(
+                        "parts", JSONArray().put(
+                            JSONObject().put("text", prompt)
+                        )
+                    )
+                )
+            ).toString()
 
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
-        if (text != null) {
-            Result.success(text)
-        } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
+            val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                connectTimeout = 30_000
+                readTimeout = 45_000
+                doOutput = true
+                outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            }
+
+            val code = conn.responseCode
+            if (code != 200) {
+                val err = conn.errorStream?.bufferedReader()?.readText()?.take(300) ?: "HTTP $code"
+                return@withContext Result.failure(IllegalStateException("Gemini $code: $err"))
+            }
+
+            val json = JSONObject(conn.inputStream.bufferedReader().readText())
+            val text = json
+                .getJSONArray("candidates")
+                .getJSONObject(0)
+                .getJSONObject("content")
+                .getJSONArray("parts")
+                .getJSONObject(0)
+                .getString("text")
+                .takeIf { it.isNotBlank() }
+
+            if (text == null) Result.failure(IllegalStateException("Empty response. Try again."))
+            else Result.success(text)
+
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("Gemini error: ${e.message?.take(200) ?: e.javaClass.simpleName}"))
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
-        Result.failure(e)
     }
 }
