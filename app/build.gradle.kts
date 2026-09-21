@@ -1,4 +1,6 @@
 import java.util.Properties
+import java.io.FileInputStream
+
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,7 +12,10 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+
+val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim()
+    ?: System.getenv("GEMINI_API_KEY")
+    ?: ""
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -36,7 +41,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -72,4 +78,5 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
