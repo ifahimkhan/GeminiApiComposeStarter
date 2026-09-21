@@ -7,6 +7,7 @@ data class ChatUiState(
     val isLoading: Boolean = false,
     val promptError: PromptError? = null,
     val errorMessage: String? = null,
+    val isDarkMode: Boolean? = null,
 )
 
 enum class PromptError { EMPTY }

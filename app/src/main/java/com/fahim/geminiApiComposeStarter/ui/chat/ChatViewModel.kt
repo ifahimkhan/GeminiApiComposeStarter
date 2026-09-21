@@ -7,6 +7,7 @@ import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import com.fahim.geminiApiComposeStarter.data.local.dao.ChatDao
 import com.fahim.geminiApiComposeStarter.data.local.entity.toChatMessage
 import com.fahim.geminiApiComposeStarter.data.local.entity.toEntity
+import com.fahim.geminiApiComposeStarter.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.withContext
 class ChatViewModel(
     private val repository: GeminiRepository,
     private val chatDao: ChatDao,
+    private val userPreferencesRepository: UserPreferencesRepository,
     private val hasApiKey: Boolean,
 ) : ViewModel() {
 
@@ -34,6 +36,17 @@ class ChatViewModel(
                 .collect { domainMessages ->
                     _uiState.update { it.copy(messages = domainMessages) }
                 }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.isDarkMode.collect { isDarkMode ->
+                _uiState.update { it.copy(isDarkMode = isDarkMode) }
+            }
+        }
+    }
+
+    fun setDarkMode(isDarkMode: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setDarkMode(isDarkMode)
         }
     }
 
@@ -104,11 +117,12 @@ class ChatViewModel(
         fun factory(
             repository: GeminiRepository,
             chatDao: ChatDao,
+            userPreferencesRepository: UserPreferencesRepository,
             hasApiKey: Boolean,
         ) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ChatViewModel(repository, chatDao, hasApiKey) as T
+                ChatViewModel(repository, chatDao, userPreferencesRepository, hasApiKey) as T
         }
     }
 }
