@@ -1,5 +1,6 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +18,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -27,6 +32,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,14 +55,17 @@ fun ChatRoute(viewModel: ChatViewModel) {
         state = state,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onSetDarkMode = viewModel::setDarkMode,
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     state: ChatUiState,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onSetDarkMode: (Boolean) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
@@ -78,6 +87,36 @@ fun ChatScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize().imePadding(),
+        topBar = {
+            TopAppBar(
+                title = { Text("Gemini Chat") },
+                actions = {
+                    val isSystemDark = isSystemInDarkTheme()
+                    val isCurrentlyDark = state.isDarkMode ?: isSystemDark
+                    val icon = if (isCurrentlyDark) Icons.Filled.LightMode else Icons.Filled.DarkMode
+                    val contentDescription = if (isCurrentlyDark) {
+                        "Switch to light theme"
+                    } else {
+                        "Switch to dark theme"
+                    }
+                    IconButton(
+                        onClick = {
+                            val nextMode = when (state.isDarkMode) {
+                                true -> false
+                                false -> true
+                                null -> !isSystemDark
+                            }
+                            onSetDarkMode(nextMode)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = contentDescription,
+                        )
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
