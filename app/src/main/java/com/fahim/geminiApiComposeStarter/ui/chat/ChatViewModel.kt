@@ -34,11 +34,34 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        val userMessage = ChatMessage(
+            text = prompt,
+            participant = Participant.USER,
+        )
+
+        _uiState.update {
+            it.copy(
+                messages = it.messages + userMessage,
+                prompt = "",
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+            )
+        }
+
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    val modelMessage = ChatMessage(
+                        text = text,
+                        participant = Participant.MODEL,
+                    )
+                    _uiState.update {
+                        it.copy(
+                            messages = it.messages + modelMessage,
+                            isLoading = false,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
