@@ -1,7 +1,26 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini AI Chat</string>
+    <string name="enter_your_prompt_here">Ask Gemini something...</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="clear_chat">Clear conversation</string>
+    <string name="clear_chat_confirmation">Are you sure you want to clear the conversation history?</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">System Default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings">API Key Settings</string>
+    <string name="api_key_dialog_title">Gemini API Key</string>
+    <string name="api_key_configured">API Key is configured and securely encrypted in Android Keystore (AES-256-GCM).</string>
+    <string name="api_key_enter_hint">Paste Gemini API Key here</string>
+    <string name="save">Save</string>
+    <string name="empty_chat_title">How can I help you today?</string>
+    <string name="empty_chat_subtitle">Ask questions, brainstorm ideas, write code, or dictate via microphone.</string>
+    <string name="gemini_thinking">Gemini is thinking...</string>
+    <string name="speech_not_available">Speech recognition is not available on this device.</string>
+    <string name="retry">Retry</string>
 </resources>
