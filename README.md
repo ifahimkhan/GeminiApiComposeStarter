@@ -72,3 +72,26 @@ Relevant files: `security/KeystoreCipher.kt`, `security/ApiKeyStore.kt`, `data/G
    ```
 
 The tests do not call the Gemini API, so they do not need an API key or an internet connection.
+
+## 4. Limits of client-side protection
+
+Encrypting the key raises the effort needed to steal it, but it cannot hide it from a determined attacker:
+
+- The app must decrypt the key to use it, so anyone who can run code inside the app process
+  (a rooted device, a debugger, or a tool such as Frida) can read it from memory.
+- The value is still compiled into the APK through `BuildConfig`. R8 obfuscation makes it harder to find,
+  not impossible.
+- The key is sent with every request, so it can also be captured from network traffic on a device the
+  attacker controls.
+
+A production app should not ship a Gemini key at all. Instead it would use one or more of these:
+
+- **Backend proxy:** the app calls your own server, and only the server holds the Gemini key. The server
+  can check who is calling (for example with Firebase Authentication), apply per-user rate limits and
+  quotas, and refuse abuse. A stolen app then gives the attacker nothing reusable.
+- **Firebase App Check:** attests that requests come from your genuine, unmodified app (using Play
+  Integrity on Android). Calling Gemini through Firebase AI Logic lets Firebase enforce App Check, so
+  requests from scripts or repackaged apps are rejected.
+- **Restricted API keys:** in Google Cloud, restrict the key to the Generative Language API only, add
+  application restrictions where the client supports them, set quotas and billing alerts, and rotate the
+  key if it is ever exposed. This limits the damage if a key does leak.
