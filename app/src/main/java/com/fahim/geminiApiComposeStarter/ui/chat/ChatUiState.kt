@@ -11,6 +11,8 @@ data class ChatUiState(
     val isLoading: Boolean = false,
     val promptError: PromptError? = null,
     val errorMessage: String? = null,
+    /** True when [errorMessage] came from a failed Gemini request, so a Retry action makes sense. */
+    val errorIsRetryable: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
 ) {
     /** True when the last message is an unanswered prompt, i.e. the request failed and can be retried. */

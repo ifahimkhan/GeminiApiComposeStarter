@@ -49,7 +49,9 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(prompt = "", promptError = null, isLoading = true, errorMessage = null) }
+        _uiState.update {
+            it.copy(prompt = "", promptError = null, isLoading = true, errorMessage = null, errorIsRetryable = false)
+        }
         viewModelScope.launch {
             history.add(Author.USER, prompt)
             fetchReply(prompt)
@@ -62,12 +64,23 @@ class ChatViewModel(
         if (state.isLoading || !state.canRetry) return
         val prompt = state.messages.last().text
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        _uiState.update { it.copy(isLoading = true, errorMessage = null, errorIsRetryable = false) }
         viewModelScope.launch { fetchReply(prompt) }
     }
 
     fun onErrorShown() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update { it.copy(errorMessage = null, errorIsRetryable = false) }
+    }
+
+    /** Puts the recognised speech into the prompt box so the user can review it before sending. */
+    fun onVoiceResult(text: String) {
+        val spoken = text.trim()
+        if (spoken.isEmpty()) return
+        _uiState.update { it.copy(prompt = "${it.prompt.trimEnd()} $spoken".trim(), promptError = null) }
+    }
+
+    fun onVoiceUnavailable() {
+        _uiState.update { it.copy(errorMessage = SPEECH_UNAVAILABLE_MESSAGE, errorIsRetryable = false) }
     }
 
     fun onThemeModeSelected(mode: ThemeMode) {
@@ -86,7 +99,11 @@ class ChatViewModel(
             },
             onFailure = { error ->
                 _uiState.update {
-                    it.copy(isLoading = false, errorMessage = error.message ?: "Something went wrong")
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = error.message ?: "Something went wrong",
+                        errorIsRetryable = true,
+                    )
                 }
             },
         )
@@ -95,6 +112,8 @@ class ChatViewModel(
     companion object {
         const val MISSING_API_KEY_MESSAGE =
             "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
+        const val SPEECH_UNAVAILABLE_MESSAGE =
+            "Speech recognition isn't available on this device."
 
         fun factory(
             repository: GeminiRepository,

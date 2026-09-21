@@ -6,6 +6,8 @@
     <string name="retry">Retry</string>
     <string name="gemini_is_thinking">Gemini is thinking</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speak_your_prompt">Speak your prompt</string>
     <string name="chat_title">Gemini Chat</string>
     <string name="more_options">More options</string>
     <string name="clear_conversation">Clear conversation</string>

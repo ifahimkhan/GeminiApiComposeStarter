@@ -1,5 +1,11 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,6 +80,7 @@ object ChatTestTags {
     const val SEND_BUTTON = "send_button"
     const val LOADING_INDICATOR = "loading_indicator"
     const val MENU_BUTTON = "menu_button"
+    const val VOICE_BUTTON = "voice_button"
 }
 
 private const val LOADING_ITEM_KEY = "loading"
@@ -88,6 +95,18 @@ fun ChatRoute(
     widthSizeClass: WindowWidthSizeClass,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The system speech recogniser returns its transcripts as an activity result.
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.let(viewModel::onVoiceResult)
+        }
+    }
+    val speakPrompt = stringResource(R.string.speak_your_prompt)
+
     ChatScreen(
         state = state,
         widthSizeClass = widthSizeClass,
@@ -97,6 +116,17 @@ fun ChatRoute(
         onErrorShown = viewModel::onErrorShown,
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onClearConversation = viewModel::onClearConversation,
+        onVoiceInput = {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PROMPT, speakPrompt)
+            }
+            try {
+                speechLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                viewModel.onVoiceUnavailable()
+            }
+        },
     )
 }
 
@@ -111,6 +141,7 @@ fun ChatScreen(
     onErrorShown: () -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onClearConversation: () -> Unit,
+    onVoiceInput: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val retryLabel = stringResource(R.string.retry)
@@ -118,7 +149,7 @@ fun ChatScreen(
         val message = state.errorMessage ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
             message = message,
-            actionLabel = retryLabel.takeIf { state.canRetry },
+            actionLabel = retryLabel.takeIf { state.errorIsRetryable && state.canRetry },
             withDismissAction = true,
             duration = SnackbarDuration.Long,
         )
@@ -160,6 +191,7 @@ fun ChatScreen(
                     sendEnabled = !state.isLoading,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onVoiceInput = onVoiceInput,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                 )
             }
@@ -342,6 +374,7 @@ private fun PromptBar(
     sendEnabled: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoiceInput: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -351,7 +384,7 @@ private fun PromptBar(
         OutlinedTextField(
             value = prompt,
             onValueChange = onPromptChange,
-            modifier = Modifier.weight(1f).padding(end = 8.dp).testTag(ChatTestTags.PROMPT_FIELD),
+            modifier = Modifier.weight(1f).testTag(ChatTestTags.PROMPT_FIELD),
             label = { Text(stringResource(R.string.enter_your_prompt_here)) },
             minLines = 1,
             maxLines = 4,
@@ -360,6 +393,16 @@ private fun PromptBar(
                 { Text(stringResource(R.string.field_cannot_be_empty)) }
             },
         )
+        IconButton(
+            onClick = onVoiceInput,
+            enabled = sendEnabled,
+            modifier = Modifier.testTag(ChatTestTags.VOICE_BUTTON),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_mic),
+                contentDescription = stringResource(R.string.voice_input),
+            )
+        }
         FilledIconButton(
             onClick = onSend,
             enabled = sendEnabled,
@@ -392,6 +435,7 @@ private fun ChatScreenPreview() {
             onErrorShown = {},
             onThemeModeSelected = {},
             onClearConversation = {},
+            onVoiceInput = {},
         )
     }
 }
@@ -409,6 +453,7 @@ private fun ChatScreenTabletPreview() {
             onErrorShown = {},
             onThemeModeSelected = {},
             onClearConversation = {},
+            onVoiceInput = {},
         )
     }
 }
