@@ -19,9 +19,14 @@ class ChatViewModelTest {
     private val gemini = FakeGeminiRepository()
     private val history = FakeChatHistoryRepository()
     private val preferences = FakeUserPreferencesRepository()
+    private val imageStore = FakeImageStore()
+    private val speaker = FakeTextSpeaker()
 
-    private fun viewModel(hasApiKey: Boolean = true) =
-        ChatViewModel(gemini, history, preferences, hasApiKey)
+    private fun viewModel(
+        hasApiKey: Boolean = true,
+        history: FakeChatHistoryRepository = this.history,
+        preferences: FakeUserPreferencesRepository = this.preferences,
+    ) = ChatViewModel(gemini, history, preferences, imageStore, speaker, hasApiKey)
 
     private fun ChatViewModel.send(prompt: String) {
         onPromptChange(prompt)
@@ -209,7 +214,7 @@ class ChatViewModelTest {
     @Test
     fun `saved conversation is loaded on start`() {
         val saved = listOf(ChatMessage(0, Author.USER, "old"), ChatMessage(1, Author.GEMINI, "reply"))
-        val vm = ChatViewModel(gemini, FakeChatHistoryRepository(saved), preferences, hasApiKey = true)
+        val vm = viewModel(history = FakeChatHistoryRepository(saved))
 
         assertEquals(saved, vm.uiState.value.messages)
     }
@@ -226,11 +231,237 @@ class ChatViewModelTest {
 
     @Test
     fun `saved theme is loaded and selecting a theme updates it`() {
-        val vm = ChatViewModel(gemini, history, FakeUserPreferencesRepository(ThemeMode.DARK), hasApiKey = true)
+        val vm = viewModel(preferences = FakeUserPreferencesRepository(ThemeMode.DARK))
         assertEquals(ThemeMode.DARK, vm.uiState.value.themeMode)
 
         vm.onThemeModeSelected(ThemeMode.LIGHT)
 
         assertEquals(ThemeMode.LIGHT, vm.uiState.value.themeMode)
+    }
+
+    // --- Stop generating ---
+
+    @Test
+    fun `stop generating cancels the request and keeps the prompt in the chat`() {
+        val gate = CompletableDeferred<Unit>()
+        gemini.gate = gate
+        val vm = viewModel()
+        vm.send("slow question")
+        assertTrue(vm.uiState.value.isLoading)
+
+        vm.onStopGenerating()
+        gate.complete(Unit)
+
+        with(vm.uiState.value) {
+            assertFalse(isLoading)
+            assertNull(errorMessage)
+            assertEquals(listOf(Author.USER to "slow question"), vm.texts())
+        }
+    }
+
+    @Test
+    fun `can send again after stopping`() {
+        gemini.gate = CompletableDeferred()
+        val vm = viewModel()
+        vm.send("first")
+        vm.onStopGenerating()
+
+        gemini.gate = null
+        vm.send("second")
+
+        assertEquals(
+            listOf(Author.USER to "first", Author.USER to "second", Author.GEMINI to "Fake reply"),
+            vm.texts(),
+        )
+        assertFalse(vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `stop generating when idle does nothing`() {
+        val vm = viewModel()
+
+        vm.onStopGenerating()
+
+        assertFalse(vm.uiState.value.isLoading)
+        assertTrue(vm.uiState.value.messages.isEmpty())
+    }
+
+    // --- Image input ---
+
+    @Test
+    fun `selecting an image attaches it`() {
+        val vm = viewModel()
+
+        vm.onImageSelected("content://photo/1")
+
+        assertEquals("stored/content://photo/1", vm.uiState.value.attachedImagePath)
+    }
+
+    @Test
+    fun `failing to load an image shows an error and attaches nothing`() {
+        imageStore.failImport = true
+        val vm = viewModel()
+
+        vm.onImageSelected("content://photo/1")
+
+        assertNull(vm.uiState.value.attachedImagePath)
+        assertEquals(ChatViewModel.IMAGE_LOAD_FAILED_MESSAGE, vm.uiState.value.errorMessage)
+        assertFalse(vm.uiState.value.errorIsRetryable)
+    }
+
+    @Test
+    fun `removing the image detaches it and deletes the file`() {
+        val vm = viewModel()
+        vm.onImageSelected("content://photo/1")
+
+        vm.onImageRemoved()
+
+        assertNull(vm.uiState.value.attachedImagePath)
+        assertEquals(listOf("stored/content://photo/1"), imageStore.deleted)
+    }
+
+    @Test
+    fun `attaching a second image replaces and deletes the first`() {
+        val vm = viewModel()
+        vm.onImageSelected("content://photo/1")
+
+        vm.onImageSelected("content://photo/2")
+
+        assertEquals("stored/content://photo/2", vm.uiState.value.attachedImagePath)
+        assertEquals(listOf("stored/content://photo/1"), imageStore.deleted)
+    }
+
+    @Test
+    fun `sending text with an image sends both and clears the attachment`() {
+        val vm = viewModel()
+        vm.onImageSelected("content://photo/1")
+
+        vm.send("What is this?")
+
+        assertEquals(listOf("What is this?"), gemini.prompts)
+        assertEquals(listOf<String?>("stored/content://photo/1"), gemini.imagePaths)
+        val userMessage = vm.uiState.value.messages.first()
+        assertEquals("stored/content://photo/1", userMessage.imagePath)
+        assertNull(vm.uiState.value.attachedImagePath)
+        assertEquals("", vm.uiState.value.prompt)
+    }
+
+    @Test
+    fun `an image alone can be sent without text`() {
+        val vm = viewModel()
+        vm.onImageSelected("content://photo/1")
+
+        vm.onSend()
+
+        assertNull(vm.uiState.value.promptError)
+        assertEquals(listOf(""), gemini.prompts)
+        assertEquals(2, vm.uiState.value.messages.size)
+    }
+
+    @Test
+    fun `retry resends the image with the prompt`() {
+        gemini.result = Result.failure(IllegalStateException("boom"))
+        val vm = viewModel()
+        vm.onImageSelected("content://photo/1")
+        vm.send("What is this?")
+
+        gemini.result = Result.success("A cat")
+        vm.onRetry()
+
+        assertEquals(listOf<String?>("stored/content://photo/1", "stored/content://photo/1"), gemini.imagePaths)
+        assertEquals(Author.GEMINI to "A cat", vm.texts().last())
+    }
+
+    @Test
+    fun `clearing the conversation deletes stored images`() {
+        val vm = viewModel()
+        vm.onImageSelected("content://photo/1")
+        vm.send("What is this?")
+
+        vm.onClearConversation()
+
+        assertTrue(vm.uiState.value.messages.isEmpty())
+        assertEquals(listOf("stored/content://photo/1"), imageStore.deleted)
+    }
+
+    @Test
+    fun `camera unavailable reports a non retryable error`() {
+        val vm = viewModel()
+
+        vm.onCameraUnavailable()
+
+        assertEquals(ChatViewModel.CAMERA_UNAVAILABLE_MESSAGE, vm.uiState.value.errorMessage)
+        assertFalse(vm.uiState.value.errorIsRetryable)
+    }
+
+    // --- Read aloud ---
+
+    @Test
+    fun `speaking a reply reads it without bold markers`() {
+        gemini.result = Result.success("The answer is **42**.")
+        val vm = viewModel()
+        vm.send("hi")
+        val replyId = vm.uiState.value.messages.last().id
+
+        vm.onSpeakMessage(replyId)
+
+        assertEquals(listOf(replyId to "The answer is 42."), speaker.spoken)
+        assertEquals(replyId, vm.uiState.value.speakingMessageId)
+    }
+
+    @Test
+    fun `speaking the same reply again stops it`() {
+        val vm = viewModel()
+        vm.send("hi")
+        val replyId = vm.uiState.value.messages.last().id
+        vm.onSpeakMessage(replyId)
+
+        vm.onSpeakMessage(replyId)
+
+        assertNull(vm.uiState.value.speakingMessageId)
+        assertEquals(1, speaker.spoken.size)
+    }
+
+    @Test
+    fun `speaking an unknown message does nothing`() {
+        val vm = viewModel()
+
+        vm.onSpeakMessage(999)
+
+        assertTrue(speaker.spoken.isEmpty())
+    }
+
+    @Test
+    fun `text to speech unavailable reports an error`() {
+        speaker.available = false
+        val vm = viewModel()
+        vm.send("hi")
+
+        vm.onSpeakMessage(vm.uiState.value.messages.last().id)
+
+        assertEquals(ChatViewModel.TTS_UNAVAILABLE_MESSAGE, vm.uiState.value.errorMessage)
+        assertNull(vm.uiState.value.speakingMessageId)
+    }
+
+    @Test
+    fun `sending a new message stops any reply being read`() {
+        val vm = viewModel()
+        vm.send("first")
+        vm.onSpeakMessage(vm.uiState.value.messages.last().id)
+
+        vm.send("second")
+
+        assertNull(vm.uiState.value.speakingMessageId)
+    }
+
+    @Test
+    fun `clearing the conversation stops speech`() {
+        val vm = viewModel()
+        vm.send("hi")
+        vm.onSpeakMessage(vm.uiState.value.messages.last().id)
+
+        vm.onClearConversation()
+
+        assertNull(vm.uiState.value.speakingMessageId)
     }
 }

@@ -3,8 +3,10 @@ package com.fahim.geminiApiComposeStarter.ui.chat
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -49,13 +52,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -66,6 +71,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.data.Author
@@ -73,14 +79,22 @@ import com.fahim.geminiApiComposeStarter.data.ChatMessage
 import com.fahim.geminiApiComposeStarter.data.ThemeMode
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import java.io.File
 
 object ChatTestTags {
     const val MESSAGE_LIST = "message_list"
     const val PROMPT_FIELD = "prompt_field"
     const val SEND_BUTTON = "send_button"
+    const val STOP_BUTTON = "stop_button"
     const val LOADING_INDICATOR = "loading_indicator"
     const val MENU_BUTTON = "menu_button"
     const val VOICE_BUTTON = "voice_button"
+    const val ATTACH_BUTTON = "attach_button"
+    const val GALLERY_ITEM = "gallery_item"
+    const val CAMERA_ITEM = "camera_item"
+    const val ATTACHMENT_PREVIEW = "attachment_preview"
+    const val REMOVE_IMAGE_BUTTON = "remove_image_button"
+    const val SPEAK_BUTTON = "speak_button"
 }
 
 private const val LOADING_ITEM_KEY = "loading"
@@ -88,6 +102,8 @@ private val BubbleCorner = 20.dp
 private val BubbleTail = 4.dp
 private val BubbleGutter = 48.dp
 private val BubbleMaxWidth = 560.dp
+private val BubbleImageWidth = 220.dp
+private val BubbleImageHeight = 160.dp
 
 @Composable
 fun ChatRoute(
@@ -95,6 +111,7 @@ fun ChatRoute(
     widthSizeClass: WindowWidthSizeClass,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     // The system speech recogniser returns its transcripts as an activity result.
     val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -107,11 +124,25 @@ fun ChatRoute(
     }
     val speakPrompt = stringResource(R.string.speak_your_prompt)
 
+    // The photo picker needs no storage permission.
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { viewModel.onImageSelected(it.toString()) }
+    }
+
+    // The camera app writes into a temporary file that we share with it through a FileProvider.
+    var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        val uri = cameraUri
+        if (taken && uri != null) viewModel.onImageSelected(uri.toString())
+        cameraUri = null
+    }
+
     ChatScreen(
         state = state,
         widthSizeClass = widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onStopGenerating = viewModel::onStopGenerating,
         onRetry = viewModel::onRetry,
         onErrorShown = viewModel::onErrorShown,
         onThemeModeSelected = viewModel::onThemeModeSelected,
@@ -127,6 +158,23 @@ fun ChatRoute(
                 viewModel.onVoiceUnavailable()
             }
         },
+        onPickFromGallery = {
+            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        },
+        onTakePhoto = {
+            val photoDir = File(context.cacheDir, "camera").apply { mkdirs() }
+            val photo = File.createTempFile("photo_", ".jpg", photoDir)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photo)
+            cameraUri = uri
+            try {
+                cameraLauncher.launch(uri)
+            } catch (e: ActivityNotFoundException) {
+                cameraUri = null
+                viewModel.onCameraUnavailable()
+            }
+        },
+        onRemoveImage = viewModel::onImageRemoved,
+        onSpeakMessage = viewModel::onSpeakMessage,
     )
 }
 
@@ -137,11 +185,16 @@ fun ChatScreen(
     widthSizeClass: WindowWidthSizeClass,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onStopGenerating: () -> Unit,
     onRetry: () -> Unit,
     onErrorShown: () -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onClearConversation: () -> Unit,
     onVoiceInput: () -> Unit,
+    onPickFromGallery: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onRemoveImage: () -> Unit,
+    onSpeakMessage: (Long) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val retryLabel = stringResource(R.string.retry)
@@ -183,15 +236,22 @@ fun ChatScreen(
                 MessageList(
                     messages = state.messages,
                     isLoading = state.isLoading,
+                    speakingMessageId = state.speakingMessageId,
+                    onSpeakMessage = onSpeakMessage,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
                 PromptBar(
                     prompt = state.prompt,
                     promptError = state.promptError,
-                    sendEnabled = !state.isLoading,
+                    attachedImagePath = state.attachedImagePath,
+                    isLoading = state.isLoading,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onStopGenerating = onStopGenerating,
                     onVoiceInput = onVoiceInput,
+                    onPickFromGallery = onPickFromGallery,
+                    onTakePhoto = onTakePhoto,
+                    onRemoveImage = onRemoveImage,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                 )
             }
@@ -260,6 +320,8 @@ private fun contentMaxWidth(widthSizeClass: WindowWidthSizeClass): Dp = when (wi
 private fun MessageList(
     messages: List<ChatMessage>,
     isLoading: Boolean,
+    speakingMessageId: Long?,
+    onSpeakMessage: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -287,7 +349,11 @@ private fun MessageList(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(items = messages, key = { it.id }) { message ->
-                MessageBubble(message = message)
+                MessageBubble(
+                    message = message,
+                    isSpeaking = message.id == speakingMessageId,
+                    onSpeak = { onSpeakMessage(message.id) },
+                )
             }
             if (isLoading) {
                 item(key = LOADING_ITEM_KEY) { LoadingBubble() }
@@ -297,7 +363,11 @@ private fun MessageList(
 }
 
 @Composable
-private fun MessageBubble(message: ChatMessage) {
+private fun MessageBubble(
+    message: ChatMessage,
+    isSpeaking: Boolean,
+    onSpeak: () -> Unit,
+) {
     val isUser = message.author == Author.USER
     Row(
         // The gutter on the opposite side keeps bubbles from spanning the full width.
@@ -311,19 +381,50 @@ private fun MessageBubble(message: ChatMessage) {
             AssistantAvatar()
             Spacer(Modifier.width(8.dp))
         }
-        Surface(
-            color = if (isUser) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurface,
-            shape = bubbleShape(isUser),
+        Column(
             modifier = Modifier.weight(1f, fill = false).widthIn(max = BubbleMaxWidth),
+            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
         ) {
-            Text(
-                text = if (isUser) AnnotatedString(message.text) else message.text.toBoldAnnotatedString(),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            )
+            Surface(
+                color = if (isUser) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurface,
+                shape = bubbleShape(isUser),
+            ) {
+                Column {
+                    message.imagePath?.let { path ->
+                        StoredImage(
+                            path = path,
+                            contentDescription = stringResource(R.string.attached_image),
+                            modifier = Modifier
+                                .padding(6.dp)
+                                .size(width = BubbleImageWidth, height = BubbleImageHeight)
+                                .clip(RoundedCornerShape(14.dp)),
+                        )
+                    }
+                    if (message.text.isNotBlank()) {
+                        Text(
+                            text = if (isUser) AnnotatedString(message.text) else message.text.toBoldAnnotatedString(),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+            }
+            if (!isUser) {
+                IconButton(
+                    onClick = onSpeak,
+                    modifier = Modifier.size(36.dp).testTag(ChatTestTags.SPEAK_BUTTON),
+                ) {
+                    Icon(
+                        painter = painterResource(if (isSpeaking) R.drawable.ic_stop else R.drawable.ic_volume_up),
+                        contentDescription = stringResource(if (isSpeaking) R.string.stop_reading else R.string.read_aloud),
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
@@ -371,47 +472,131 @@ private fun bubbleShape(isUser: Boolean) = RoundedCornerShape(
 private fun PromptBar(
     prompt: String,
     promptError: PromptError?,
-    sendEnabled: Boolean,
+    attachedImagePath: String?,
+    isLoading: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onStopGenerating: () -> Unit,
     onVoiceInput: () -> Unit,
+    onPickFromGallery: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onRemoveImage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        OutlinedTextField(
-            value = prompt,
-            onValueChange = onPromptChange,
-            modifier = Modifier.weight(1f).testTag(ChatTestTags.PROMPT_FIELD),
-            label = { Text(stringResource(R.string.enter_your_prompt_here)) },
-            minLines = 1,
-            maxLines = 4,
-            isError = promptError != null,
-            supportingText = promptError?.let {
-                { Text(stringResource(R.string.field_cannot_be_empty)) }
-            },
-        )
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (attachedImagePath != null) {
+            AttachmentPreview(path = attachedImagePath, onRemove = onRemoveImage)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AttachButton(
+                enabled = !isLoading,
+                onPickFromGallery = onPickFromGallery,
+                onTakePhoto = onTakePhoto,
+            )
+            OutlinedTextField(
+                value = prompt,
+                onValueChange = onPromptChange,
+                modifier = Modifier.weight(1f).testTag(ChatTestTags.PROMPT_FIELD),
+                label = { Text(stringResource(R.string.enter_your_prompt_here)) },
+                minLines = 1,
+                maxLines = 4,
+                isError = promptError != null,
+                supportingText = promptError?.let {
+                    { Text(stringResource(R.string.field_cannot_be_empty)) }
+                },
+            )
+            IconButton(
+                onClick = onVoiceInput,
+                enabled = !isLoading,
+                modifier = Modifier.testTag(ChatTestTags.VOICE_BUTTON),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_mic),
+                    contentDescription = stringResource(R.string.voice_input),
+                )
+            }
+            if (isLoading) {
+                // While Gemini is working the send button turns into a stop button.
+                FilledIconButton(
+                    onClick = onStopGenerating,
+                    modifier = Modifier.testTag(ChatTestTags.STOP_BUTTON),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_stop),
+                        contentDescription = stringResource(R.string.stop_generating),
+                    )
+                }
+            } else {
+                FilledIconButton(
+                    onClick = onSend,
+                    modifier = Modifier.testTag(ChatTestTags.SEND_BUTTON),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = stringResource(R.string.send),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachButton(
+    enabled: Boolean,
+    onPickFromGallery: () -> Unit,
+    onTakePhoto: () -> Unit,
+) {
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    Box {
         IconButton(
-            onClick = onVoiceInput,
-            enabled = sendEnabled,
-            modifier = Modifier.testTag(ChatTestTags.VOICE_BUTTON),
+            onClick = { menuOpen = true },
+            enabled = enabled,
+            modifier = Modifier.testTag(ChatTestTags.ATTACH_BUTTON),
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_mic),
-                contentDescription = stringResource(R.string.voice_input),
+                painter = painterResource(R.drawable.ic_attach),
+                contentDescription = stringResource(R.string.attach_image),
             )
         }
-        FilledIconButton(
-            onClick = onSend,
-            enabled = sendEnabled,
-            modifier = Modifier.testTag(ChatTestTags.SEND_BUTTON),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = stringResource(R.string.send),
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.choose_from_gallery)) },
+                modifier = Modifier.testTag(ChatTestTags.GALLERY_ITEM),
+                onClick = {
+                    menuOpen = false
+                    onPickFromGallery()
+                },
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.take_photo)) },
+                modifier = Modifier.testTag(ChatTestTags.CAMERA_ITEM),
+                onClick = {
+                    menuOpen = false
+                    onTakePhoto()
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AttachmentPreview(path: String, onRemove: () -> Unit) {
+    Row(
+        modifier = Modifier.padding(bottom = 8.dp).testTag(ChatTestTags.ATTACHMENT_PREVIEW),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StoredImage(
+            path = path,
+            contentDescription = stringResource(R.string.attached_image),
+            modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)),
+            maxSidePx = 240,
+        )
+        IconButton(onClick = onRemove, modifier = Modifier.testTag(ChatTestTags.REMOVE_IMAGE_BUTTON)) {
+            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remove_image))
         }
     }
 }
@@ -426,17 +611,7 @@ private val previewMessages = listOf(
 @Composable
 private fun ChatScreenPreview() {
     GeminiApiComposeStarterTheme {
-        ChatScreen(
-            state = ChatUiState(messages = previewMessages, isLoading = true),
-            widthSizeClass = WindowWidthSizeClass.Compact,
-            onPromptChange = {},
-            onSend = {},
-            onRetry = {},
-            onErrorShown = {},
-            onThemeModeSelected = {},
-            onClearConversation = {},
-            onVoiceInput = {},
-        )
+        PreviewScreen(ChatUiState(messages = previewMessages, isLoading = true), WindowWidthSizeClass.Compact)
     }
 }
 
@@ -444,16 +619,26 @@ private fun ChatScreenPreview() {
 @Composable
 private fun ChatScreenTabletPreview() {
     GeminiApiComposeStarterTheme {
-        ChatScreen(
-            state = ChatUiState(messages = previewMessages),
-            widthSizeClass = WindowWidthSizeClass.Expanded,
-            onPromptChange = {},
-            onSend = {},
-            onRetry = {},
-            onErrorShown = {},
-            onThemeModeSelected = {},
-            onClearConversation = {},
-            onVoiceInput = {},
-        )
+        PreviewScreen(ChatUiState(messages = previewMessages), WindowWidthSizeClass.Expanded)
     }
+}
+
+@Composable
+private fun PreviewScreen(state: ChatUiState, widthSizeClass: WindowWidthSizeClass) {
+    ChatScreen(
+        state = state,
+        widthSizeClass = widthSizeClass,
+        onPromptChange = {},
+        onSend = {},
+        onStopGenerating = {},
+        onRetry = {},
+        onErrorShown = {},
+        onThemeModeSelected = {},
+        onClearConversation = {},
+        onVoiceInput = {},
+        onPickFromGallery = {},
+        onTakePhoto = {},
+        onRemoveImage = {},
+        onSpeakMessage = {},
+    )
 }

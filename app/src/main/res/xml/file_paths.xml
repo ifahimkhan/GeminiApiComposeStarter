@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Photos taken with the camera are written here first, then copied into app storage. -->
+    <cache-path
+        name="camera"
+        path="camera/" />
+</paths>

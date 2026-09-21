@@ -14,11 +14,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.data.DataStoreUserPreferencesRepository
+import com.fahim.geminiApiComposeStarter.data.FileImageStore
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
 import com.fahim.geminiApiComposeStarter.data.RoomChatHistoryRepository
 import com.fahim.geminiApiComposeStarter.data.ThemeMode
 import com.fahim.geminiApiComposeStarter.data.local.AppDatabase
 import com.fahim.geminiApiComposeStarter.security.ApiKeyStore
+import com.fahim.geminiApiComposeStarter.speech.AndroidTextSpeaker
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
@@ -26,12 +28,16 @@ import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 class MainActivity : ComponentActivity() {
 
     private val viewModel: ChatViewModel by viewModels {
+        val imageStore = FileImageStore(applicationContext)
         ChatViewModel.factory(
             repository = GeminiRepositoryImpl(
                 apiKeyProvider = ApiKeyStore(applicationContext, BuildConfig.GEMINI_API_KEY)::getApiKey,
+                imageStore = imageStore,
             ),
             history = RoomChatHistoryRepository(AppDatabase.create(applicationContext).chatDao()),
             preferences = DataStoreUserPreferencesRepository(applicationContext),
+            imageStore = imageStore,
+            speaker = AndroidTextSpeaker(applicationContext),
             hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
         )
     }

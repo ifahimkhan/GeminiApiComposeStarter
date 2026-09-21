@@ -11,6 +11,7 @@ data class ChatMessageEntity(
     val author: String,
     val text: String,
     val createdAt: Long,
+    val imagePath: String? = null,
 ) {
-    fun toModel() = ChatMessage(id = id, author = Author.valueOf(author), text = text)
+    fun toModel() = ChatMessage(id = id, author = Author.valueOf(author), text = text, imagePath = imagePath)
 }
