@@ -5,7 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
+import com.fahim.geminiApiComposeStarter.data.local.AppDatabase
+import com.fahim.geminiApiComposeStarter.data.preferences.UserPreferencesRepository
+import com.fahim.geminiApiComposeStarter.data.security.ApiKeySecurityManager
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
@@ -13,9 +19,15 @@ import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 class MainActivity : ComponentActivity() {
 
     private val viewModel: ChatViewModel by viewModels {
+        val securityManager = ApiKeySecurityManager(applicationContext)
+        val apiKey = securityManager.getOrSaveApiKey(BuildConfig.GEMINI_API_KEY).orEmpty()
+        val database = AppDatabase.getInstance(applicationContext)
+        val userPreferencesRepository = UserPreferencesRepository(applicationContext)
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = BuildConfig.GEMINI_API_KEY),
-            hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
+            repository = GeminiRepositoryImpl(apiKey = apiKey),
+            chatDao = database.chatDao(),
+            userPreferencesRepository = userPreferencesRepository,
+            hasApiKey = apiKey.isNotBlank(),
         )
     }
 
@@ -23,7 +35,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            GeminiApiComposeStarterTheme {
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val darkTheme = uiState.isDarkMode ?: isSystemInDarkTheme()
+            GeminiApiComposeStarterTheme(
+                darkTheme = darkTheme,
+            ) {
                 ChatRoute(viewModel = viewModel)
             }
         }
