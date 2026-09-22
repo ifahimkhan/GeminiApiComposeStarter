@@ -1,0 +1,4 @@
+## This file is an example template for local configuration.
+# Copy this file to 'local.properties' (which is git-ignored) and insert your Gemini API Key.
+# Obtain a key at: https://aistudio.google.com/
+GEMINI_API_KEY=your_api_key_here

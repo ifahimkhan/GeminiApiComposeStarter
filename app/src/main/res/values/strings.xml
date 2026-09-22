@@ -1,7 +1,14 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini AI</string>
+    <string name="enter_your_prompt_here">Ask Gemini anything…</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
+    <string name="voice_input">Voice input</string>
+    <string name="clear_history">Clear history</string>
+    <string name="response_placeholder">Responses will appear here</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="welcome_title">Welcome to Gemini AI</string>
+    <string name="welcome_subtitle">Start typing a prompt below or use the microphone to talk.</string>
+    <string name="thinking">Gemini is thinking…</string>
+    <string name="speech_not_available">Speech recognition is not available on this device.</string>
+    <string name="tone_label">AI Tone</string>
 </resources>
