@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
+import com.fahim.geminiApiComposeStarter.data.local.AppDatabase
+import com.fahim.geminiApiComposeStarter.data.preferences.UserPreferencesRepository
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
@@ -13,8 +15,14 @@ import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 class MainActivity : ComponentActivity() {
 
     private val viewModel: ChatViewModel by viewModels {
+        val database = AppDatabase.getDatabase(applicationContext)
+        val userPreferencesRepository = UserPreferencesRepository(applicationContext)
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = BuildConfig.GEMINI_API_KEY),
+            repository = GeminiRepositoryImpl(
+                apiKey = BuildConfig.GEMINI_API_KEY,
+                messageDao = database.messageDao()
+            ),
+            userPreferencesRepository = userPreferencesRepository,
             hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
         )
     }

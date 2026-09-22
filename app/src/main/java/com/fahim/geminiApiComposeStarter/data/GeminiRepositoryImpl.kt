@@ -1,14 +1,21 @@
 package com.fahim.geminiApiComposeStarter.data
 
 import android.util.Log
+import com.fahim.geminiApiComposeStarter.data.local.MessageDao
+import com.fahim.geminiApiComposeStarter.data.local.MessageEntity
+import com.fahim.geminiApiComposeStarter.ui.chat.ChatMessage
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
     apiKey: String,
+    private val messageDao: MessageDao? = null,
     modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
@@ -27,5 +34,26 @@ class GeminiRepositoryImpl(
     } catch (e: Exception) {
         Log.e(TAG, "generateContent failed", e)
         Result.failure(e)
+    }
+
+    override fun getMessages(): Flow<List<ChatMessage>> {
+        return messageDao?.getAllMessages()?.map { entities ->
+            entities.map { ChatMessage(id = it.id, text = it.text, isUser = it.isUser, timestamp = it.timestamp) }
+        } ?: flowOf(emptyList())
+    }
+
+    override suspend fun saveMessage(message: ChatMessage) {
+        messageDao?.insertMessage(
+            MessageEntity(
+                id = message.id,
+                text = message.text,
+                isUser = message.isUser,
+                timestamp = message.timestamp
+            )
+        )
+    }
+
+    override suspend fun clearMessages() {
+        messageDao?.clearAll()
     }
 }
