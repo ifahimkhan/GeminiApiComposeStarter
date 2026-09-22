@@ -1,7 +1,18 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Vaishnavi N085</string>
+    <string name="chat_title">Gemini Chat</string>
+    <string name="greeting">Hi, %1$s</string>
+    <string name="enter_your_prompt_here">Message Gemini…</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="empty_conversation">Start a conversation with Gemini</string>
+    <string name="field_cannot_be_empty">Prompt cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speak_now">Speak your prompt</string>
+    <string name="voice_not_available">Voice input is not available on this device</string>
+    <string name="clear_conversation">Clear conversation</string>
+    <string name="edit_name">Edit name</string>
+    <string name="your_name">Your name</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="gemini_typing">Gemini is typing…</string>
 </resources>

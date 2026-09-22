@@ -1,0 +1,4 @@
+# Copy this file to local.properties and add your real Gemini API key.
+# local.properties is git-ignored; never commit it or paste the key into
+# Kotlin files, strings.xml or build.gradle.kts.
+GEMINI_API_KEY=your_api_key_here
