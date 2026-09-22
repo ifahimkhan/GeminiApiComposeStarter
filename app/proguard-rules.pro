@@ -19,3 +19,22 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# --- Release hardening -------------------------------------------------------
+# isMinifyEnabled = true, so R8 renames and strips everything not kept below.
+
+# Room generates an implementation of each @Database at build time.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
+-dontwarn androidx.room.paging.**
+
+# The Gemini SDK reflects over its request/response models when (de)serialising.
+-keep class com.google.ai.client.generativeai.type.** { *; }
+
+# Strip every logging call from release builds, so nothing can print a decrypted
+# key even by accident.
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+}
