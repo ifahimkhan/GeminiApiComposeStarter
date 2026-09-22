@@ -19,13 +19,15 @@ class ApiKeyStorage(context: Context) {
      * and persists only the ciphertext and IV at rest.
      */
     fun initializeKeyAtRest(rawBuildKey: String) {
-        val existingCipher = prefs.getString(KEY_CIPHERTEXT, null)
-        if (existingCipher.isNullOrBlank() && rawBuildKey.isNotBlank()) {
-            val payload = CryptoManager.encrypt(rawBuildKey)
-            prefs.edit()
-                .putString(KEY_CIPHERTEXT, payload.ciphertextBase64)
-                .putString(KEY_IV, payload.ivBase64)
-                .apply()
+        if (rawBuildKey.isNotBlank()) {
+            val existingKey = getDecryptedApiKey("")
+            if (existingKey != rawBuildKey) {
+                val payload = CryptoManager.encrypt(rawBuildKey)
+                prefs.edit()
+                    .putString(KEY_CIPHERTEXT, payload.ciphertextBase64)
+                    .putString(KEY_IV, payload.ivBase64)
+                    .apply()
+            }
         }
     }
 
