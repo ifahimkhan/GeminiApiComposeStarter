@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+.gradle/
+.kotlin/
+**/build/
+*.jks
+*.keystore
+test-run.txt
+test-crash.txt
