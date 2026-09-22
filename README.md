@@ -71,7 +71,8 @@ This project is a modern, responsive, and secure Android chatbot application bui
 1. Visit [Google AI Studio](https://aistudio.google.com/).
 2. Sign in with your Google account.
 3. Click **Get API key** and create a new key.
-4. Copy your API key.
+4. Copy your API key (supports both standard `AIza...` and new `AQ...` key formats).
+
 
 ### 3. Configure `local.properties`
 In the project root directory, open (or create) the `local.properties` file and add your key:
