@@ -1,0 +1,3 @@
+# Copy this file to local.properties and paste your real Gemini API key.
+# local.properties is git-ignored — never commit your actual key.
+GEMINI_API_KEY=your_api_key_here

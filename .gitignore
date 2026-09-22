@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+/build-output.log
+
+# Gradle toolchain resolver output
+gradle/gradle-daemon-jvm.properties
