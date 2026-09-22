@@ -1,0 +1,9 @@
+# Copy this file to local.properties (which is git-ignored) and fill in your key.
+# Never commit local.properties to version control.
+#
+# Steps:
+#  1. Visit https://aistudio.google.com/app/apikey
+#  2. Create or copy your API key
+#  3. Paste it below and save as local.properties (same directory as this file)
+
+GEMINI_API_KEY=your_api_key_here
