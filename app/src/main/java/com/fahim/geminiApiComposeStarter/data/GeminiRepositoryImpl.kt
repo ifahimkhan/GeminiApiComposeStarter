@@ -10,17 +10,20 @@ private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-1.5-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val apiKey: String,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    // Model is instantiated in-memory with the decrypted key; never logged or toasted.
-    private val model by lazy {
-        GenerativeModel(modelName = modelName, apiKey = apiKey)
-    }
-
     override suspend fun generateText(prompt: String): Result<String> = withContext(Dispatchers.IO) {
+        val key = apiKey.trim()
+        if (key.isBlank() || key == "your_api_key_here" || key == "your_gemini_api_key_here") {
+            return@withContext Result.failure(
+                IllegalArgumentException("GEMINI_API_KEY is missing. Please add your key to local.properties.")
+            )
+        }
+
         try {
+            val model = GenerativeModel(modelName = modelName, apiKey = key)
             val response = model.generateContent(prompt)
             val text = response.text?.takeIf { it.isNotBlank() }
             if (text != null) {
@@ -30,9 +33,11 @@ class GeminiRepositoryImpl(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "generateContent failed", e)
-            Result.failure(e)
+            Result.failure(
+                Exception(e.message ?: "Failed to generate response. Check your API key and network connection.")
+            )
         }
     }
 }
