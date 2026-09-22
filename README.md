@@ -24,6 +24,22 @@ An advanced, production-ready Android application built with **Jetpack Compose**
 
 ---
 
+## API Key Security & Best Practices
+
+To protect sensitive API credentials, this app implements rigorous security measures:
+1. **Never Hardcode Keys**: The API key is never hardcoded in source code or committed resources.
+2. **`local.properties` & CI Fallback**:
+   - Stored in git-ignored `local.properties`. A template is provided in [`local.properties.example`](file:///C:/Users/DELL/AndroidStudioProjects/N116_Akshat_Assignment1/local.properties.example).
+   - Automatically falls back to environment variables (`System.getenv("GEMINI_API_KEY")`) for CI/CD pipeline builds.
+3. **Android Keystore Encryption at Rest**:
+   - Uses `ApiKeyManager` with AES-256-GCM backed by the Android Keystore (`KeyGenParameterSpec`) to encrypt and decrypt sensitive data securely at runtime.
+4. **Release Obfuscation**:
+   - Release builds have `isMinifyEnabled = true` and `isShrinkResources = true` enabled via R8 to prevent reverse engineering.
+5. **Production Considerations**:
+   - In a production environment, direct client-side API calls should be routed through a **secure backend proxy** (e.g., Cloud Functions / Ktor server) or protected using **Firebase App Check** and API key restrictions (package name & SHA-256 fingerprint).
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -34,8 +50,7 @@ An advanced, production-ready Android application built with **Jetpack Compose**
 
 ### Setup API Key
 
-To keep your API key secure and out of version control:
-1. Open or create `local.properties` in the root project directory.
+1. Copy `local.properties.example` to `local.properties`.
 2. Add your Gemini API key:
    ```properties
    GEMINI_API_KEY=your_actual_gemini_api_key_here
@@ -49,13 +64,3 @@ To keep your API key secure and out of version control:
 - **Build**: `./gradlew assembleDebug`
 - **Run Unit Tests**: `./gradlew testDebugUnitTest`
 - **Deploy**: Run the app from Android Studio on an emulator or physical device.
-
----
-
-## Tech Stack
-
-- **UI**: Jetpack Compose, Material 3, Navigation / Lifecycle Compose
-- **AI**: Google Generative AI SDK (`google-generativeai`)
-- **Persistence**: Room Database, Preferences DataStore
-- **Concurrency**: Kotlin Coroutines & Flow
-- **Testing**: JUnit, Kotlinx Coroutines Test, Compose UI Test
