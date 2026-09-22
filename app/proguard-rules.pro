@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Preserve BuildConfig fields including GEMINI_API_KEY
+-keep class com.fahim.geminiApiComposeStarter.BuildConfig { *; }
+
+# Preserve Google Generative AI SDK classes
+-keep class com.google.ai.client.generativeai.** { *; }
+-dontwarn com.google.ai.client.generativeai.**
