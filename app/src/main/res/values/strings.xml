@@ -1,7 +1,32 @@
 <resources>
     <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="chat_title">Gemini Chat</string>
+    <string name="enter_your_prompt_here">Message Gemini…</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+
+    <string name="empty_title">Hi, I\'m Gemini</string>
+    <string name="empty_subtitle">Ask me anything, or try one of these:</string>
+    <string name="suggestion_one">Explain Kotlin coroutines simply</string>
+    <string name="suggestion_two">Plan a 3-day study schedule</string>
+    <string name="suggestion_three">Write a short poem about rain</string>
+
+    <string name="thinking">Gemini is thinking…</string>
+    <string name="retry">Retry</string>
+    <string name="copied">Copied to clipboard</string>
+    <string name="copy_hint">Long-press a message to copy it</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_prompt">Speak your message</string>
+    <string name="voice_unavailable">Voice input isn\'t available on this device</string>
+    <string name="theme_system">Theme: follow system</string>
+    <string name="theme_light">Theme: light</string>
+    <string name="theme_dark">Theme: dark</string>
+    <string name="clear_chat">Clear chat</string>
+    <string name="clear_chat_title">Clear conversation?</string>
+    <string name="clear_chat_message">This deletes all messages on this device.</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="you">You</string>
+    <string name="gemini">Gemini</string>
 </resources>
