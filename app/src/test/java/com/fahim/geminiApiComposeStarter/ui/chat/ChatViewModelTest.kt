@@ -42,7 +42,7 @@ class ChatViewModelTest {
     @Test
     fun onPromptChange_updatesPromptAndClearsError() = runTest(testDispatcher) {
         val fakeRepo = FakeGeminiRepository()
-        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true)
+        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, ioDispatcher = testDispatcher)
 
         viewModel.onPromptChange("Hello World")
         assertEquals("Hello World", viewModel.uiState.value.prompt)
@@ -52,7 +52,7 @@ class ChatViewModelTest {
     @Test
     fun onSend_withEmptyPrompt_setsPromptError() = runTest(testDispatcher) {
         val fakeRepo = FakeGeminiRepository()
-        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true)
+        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, ioDispatcher = testDispatcher)
 
         viewModel.onPromptChange("   ")
         viewModel.onSend()
@@ -80,7 +80,7 @@ class ChatViewModelTest {
     fun onSend_successfulResponse_addsMessagesToState() = runTest(testDispatcher) {
         val expectedResponse = "Hello! How can I assist you today?"
         val fakeRepo = FakeGeminiRepository(Result.success(expectedResponse))
-        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true)
+        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, ioDispatcher = testDispatcher)
 
         viewModel.onPromptChange("Hi there")
         viewModel.onSend()
@@ -105,7 +105,7 @@ class ChatViewModelTest {
     fun onSend_failureResponse_updatesErrorMessage() = runTest(testDispatcher) {
         val errorMessage = "Quota exceeded or network timeout"
         val fakeRepo = FakeGeminiRepository(Result.failure(RuntimeException(errorMessage)))
-        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true)
+        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, ioDispatcher = testDispatcher)
 
         viewModel.onPromptChange("Generate story")
         viewModel.onSend()
@@ -120,7 +120,7 @@ class ChatViewModelTest {
     @Test
     fun onVoiceInputResult_updatesPrompt() = runTest(testDispatcher) {
         val fakeRepo = FakeGeminiRepository()
-        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true)
+        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, ioDispatcher = testDispatcher)
 
         viewModel.onVoiceInputResult("Voice recognized question")
         assertEquals("Voice recognized question", viewModel.uiState.value.prompt)
@@ -129,7 +129,7 @@ class ChatViewModelTest {
     @Test
     fun onClearHistory_clearsAllMessages() = runTest(testDispatcher) {
         val fakeRepo = FakeGeminiRepository(Result.success("Answer"))
-        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true)
+        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, ioDispatcher = testDispatcher)
 
         viewModel.onPromptChange("Question")
         viewModel.onSend()
@@ -147,7 +147,7 @@ class ChatViewModelTest {
     fun withChatDao_persistsAndLoadsMessages() = runTest(testDispatcher) {
         val fakeDao = FakeChatDao()
         val fakeRepo = FakeGeminiRepository(Result.success("Persisted Answer"))
-        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, chatDao = fakeDao)
+        val viewModel = ChatViewModel(repository = fakeRepo, hasApiKey = true, chatDao = fakeDao, ioDispatcher = testDispatcher)
 
         viewModel.onPromptChange("Persisted Question")
         viewModel.onSend()

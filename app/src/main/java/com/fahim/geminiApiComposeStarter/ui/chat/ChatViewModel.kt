@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import com.fahim.geminiApiComposeStarter.data.local.ChatDao
 import com.fahim.geminiApiComposeStarter.data.local.ChatMessageEntity
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +18,7 @@ class ChatViewModel(
     private val repository: GeminiRepository,
     private val hasApiKey: Boolean,
     private val chatDao: ChatDao? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState(hasApiKey = hasApiKey))
@@ -24,7 +27,7 @@ class ChatViewModel(
     init {
         // Collect past conversations persisted in Room so chat survives app restarts
         chatDao?.let { dao ->
-            viewModelScope.launch {
+            viewModelScope.launch(ioDispatcher) {
                 dao.getAllMessages().collect { entities ->
                     _uiState.update { current ->
                         current.copy(
@@ -58,7 +61,7 @@ class ChatViewModel(
     }
 
     fun onClearHistory() {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             if (chatDao != null) {
                 chatDao.clearAllMessages()
             } else {
@@ -82,7 +85,7 @@ class ChatViewModel(
         // Clear input field and set loading
         _uiState.update { it.copy(prompt = "", isLoading = true, errorMessage = null, promptError = null) }
 
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             // Save user message to Room or in-memory state
             val userTimestamp = System.currentTimeMillis()
             if (chatDao != null) {
