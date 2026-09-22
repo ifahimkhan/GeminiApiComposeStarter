@@ -2,7 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Internet access for Gemini API calls -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Microphone for voice input via RecognizerIntent -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:allowBackup="true"

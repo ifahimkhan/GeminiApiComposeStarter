@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 // Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
@@ -10,7 +11,8 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY")
+    ?: System.getenv("GEMINI_API_KEY") ?: ""
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -36,7 +38,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -47,6 +49,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -54,22 +59,48 @@ android {
 }
 
 dependencies {
+    // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+
+    // Compose BOM
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    // Gemini AI
     implementation(libs.google.generativeai)
+
+    // Room (with KSP)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // DataStore Preferences
+    implementation(libs.androidx.datastore.preferences)
+
+    // Security Crypto (EncryptedSharedPreferences + Android Keystore)
+    implementation(libs.androidx.security.crypto)
+
+    // Adaptive layout / WindowSizeClass
+    implementation(libs.androidx.material3.adaptive)
+
+    // Unit tests
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockito.kotlin)
+
+    // Android / Compose UI tests
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+
+    // Debug
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
