@@ -1,31 +1,121 @@
 package com.fahim.geminiApiComposeStarter.data
 
-import android.util.Log
-import com.google.ai.client.generativeai.GenerativeModel
-import kotlinx.coroutines.CancellationException
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.Uri
 
-private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-3.6-flash"
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+
+private const val DEFAULT_MODEL =
+    "gemini-3.6-flash"
+
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val context: Context,
+    private val secureApiKeyStore: SecureApiKeyStore
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
 
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
-        if (text != null) {
-            Result.success(text)
-        } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
-        }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
-        Result.failure(e)
+    override suspend fun initialize() {
+
+        secureApiKeyStore.initializeEncryptedKey()
     }
+
+
+    override suspend fun sendMessage(
+        prompt: String,
+        imageUri: Uri?
+    ): String =
+        withContext(Dispatchers.IO) {
+
+            /*
+             * Retrieve the decrypted API key.
+             */
+            val apiKey =
+                secureApiKeyStore.getDecryptedApiKey()
+
+
+            require(apiKey.isNotBlank()) {
+                "API key is empty."
+            }
+
+
+            /*
+             * Create the Gemini model.
+             */
+            val model =
+                GenerativeModel(
+                    modelName = DEFAULT_MODEL,
+                    apiKey = apiKey
+                )
+
+
+            /*
+             * TEXT ONLY
+             *
+             * Keep the existing working path unchanged.
+             */
+            if (imageUri == null) {
+
+                val response =
+                    model.generateContent(
+                        prompt
+                    )
+
+                return@withContext(
+                        response.text
+                            ?: "Gemini returned no text."
+                        )
+            }
+
+
+            /*
+             * IMAGE + TEXT
+             *
+             * Read the selected image from the
+             * Android content resolver.
+             */
+            val bitmap =
+                context.contentResolver
+                    .openInputStream(imageUri)
+                    ?.use { inputStream ->
+
+                        BitmapFactory.decodeStream(
+                            inputStream
+                        )
+                    }
+                    ?: throw IllegalStateException(
+                        "Unable to read the selected image."
+                    )
+
+
+            /*
+             * Construct multimodal content.
+             */
+            val inputContent =
+                content {
+
+                    image(bitmap)
+
+                    text(prompt)
+                }
+
+
+            /*
+             * Send image + prompt to Gemini.
+             */
+            val response =
+                model.generateContent(
+                    inputContent
+                )
+
+
+            response.text
+                ?: "Gemini returned no text."
+        }
 }
