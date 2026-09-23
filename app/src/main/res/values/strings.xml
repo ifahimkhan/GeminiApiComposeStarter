@@ -1,7 +1,11 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini Spark</string>
+    <string name="enter_your_prompt_here">Ask Gemini Spark anything…</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="response_placeholder">Response will appear here</string>
+    <string name="field_cannot_be_empty">Prompt cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="empty_chat_title">Gemini Spark</string>
+    <string name="empty_chat_subtitle">Ignite your productivity with conversational AI. Type below or tap the microphone to start.</string>
+    <string name="gemini_thinking">Gemini Spark is thinking…</string>
 </resources>
