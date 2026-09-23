@@ -4,4 +4,14 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_prompt_hint">Speak your prompt…</string>
+    <string name="speech_not_supported">Speech recognition is not available on this device.</string>
+    <string name="clear_chat">Clear chat history</string>
+    <string name="empty_chat_title">Welcome to Gemini AI Chat</string>
+    <string name="empty_chat_subtitle">Start a conversation by typing a prompt or using voice input.</string>
+    <string name="you">You</string>
+    <string name="gemini">Gemini</string>
+    <string name="generating_response">Gemini is thinking…</string>
+    <string name="retry">Retry</string>
 </resources>
