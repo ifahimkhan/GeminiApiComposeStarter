@@ -1,0 +1,18 @@
+# Gemini API Compose Chat
+
+An Android chat application built with Jetpack Compose that seamlessly interfaces with the Google Gemini API. This project demonstrates modern Android development practices, integrating responsive UI design, local data persistence, and secure credential management.
+
+## Key Features
+* **Conversational UI:** A dynamic chat interface utilizing `LazyColumn` for state-driven Material 3 chat bubbles, complete with auto-scrolling and adaptive layouts.
+* **Persistent History & Clear Chat:** Integration of Room Database to save chat history locally, ensuring conversations survive application restarts, along with a clear chat option to reset the conversation.
+* **Voice-to-Text Input:** Built-in speech recognition using `RecognizerIntent` for hands-free prompt generation.
+* **Dark Theme Support:** Fully responsive to system-level dark theme preferences using Material 3 dynamic colors for comfortable low-light usage.
+* **Secure Key Management:** Implementation of `EncryptedSharedPreferences` and Android Keystore to securely store and inject the Gemini API key.
+* **MVVM Architecture:** Clean separation of concerns using `ViewModel`, `StateFlow`, and a repository pattern to manage API communication and UI state.
+
+## Tech Stack
+* **UI:** Jetpack Compose, Material 3
+* **Language:** Kotlin
+* **Architecture:** MVVM, StateFlow, Coroutines
+* **Local Storage:** Room Database, EncryptedSharedPreferences
+* **API:** Google Gemini SDK (`gemini-1.5-flash`)
