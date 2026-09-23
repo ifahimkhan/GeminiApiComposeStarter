@@ -14,17 +14,23 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: ChatViewModel by viewModels {
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = BuildConfig.GEMINI_API_KEY),
-            hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
+            repository = GeminiRepositoryImpl(
+                apiKey = BuildConfig.GEMINI_API_KEY
+            ),
+            hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank()
         )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         enableEdgeToEdge()
+
         setContent {
             GeminiApiComposeStarterTheme {
-                ChatRoute(viewModel = viewModel)
+                ChatRoute(
+                    viewModel = viewModel
+                )
             }
         }
     }
