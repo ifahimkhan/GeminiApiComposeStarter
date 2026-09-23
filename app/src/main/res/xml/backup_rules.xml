@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
     <exclude domain="sharedpref" path="gemini_credentials.xml" />
+    <exclude domain="file" path="datastore/gemini_credentials.preferences_pb" />
 </full-backup-content>

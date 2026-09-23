@@ -2,8 +2,10 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="gemini_credentials.xml" />
+        <exclude domain="file" path="datastore/gemini_credentials.preferences_pb" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="gemini_credentials.xml" />
+        <exclude domain="file" path="datastore/gemini_credentials.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

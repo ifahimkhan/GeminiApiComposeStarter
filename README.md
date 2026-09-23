@@ -31,7 +31,7 @@ The app was launched without a Gemini key. These are genuine emulator captures o
 
 ## Key handling
 
-Gradle reads the key from ignored `local.properties`, then falls back to the `GEMINI_API_KEY` environment variable. It exposes the value to the app through `BuildConfig`. At first launch, `ApiKeyVault` creates an AES-256-GCM key in Android Keystore, encrypts the Gemini key, and stores only ciphertext and IV in app preferences. It decrypts the key in memory when `GeminiRepositoryImpl` creates a `GenerativeModel`. The encrypted preferences file is excluded from backup and device transfer. The release build uses R8 shrinking and obfuscation.
+Gradle reads the key from ignored `local.properties`, then falls back to the `GEMINI_API_KEY` environment variable. It exposes the value to the app through `BuildConfig`. At first launch, `ApiKeyVault` creates an AES-256-GCM key in Android Keystore, encrypts the Gemini key, and stores only ciphertext and IV in Preferences DataStore. It decrypts the key in memory when `GeminiRepositoryImpl` creates a `GenerativeModel`. The credential DataStore file is excluded from backup and device transfer. The release build uses R8 shrinking and obfuscation.
 
 This protects the stored value but **does not make a client-side API key secret**: a key embedded in an APK can be extracted by a determined attacker. For production, move Gemini requests behind a backend proxy, or migrate to [Firebase AI Logic](https://firebase.google.com/docs/ai-logic) with Firebase App Check and a restricted key. The starter's Google AI Android client SDK is [deprecated](https://firebase.google.com/docs/ai-logic/migrate-from-google-ai-client-sdks); it remains here to match the assignment's `GenerativeModel` requirement.
 

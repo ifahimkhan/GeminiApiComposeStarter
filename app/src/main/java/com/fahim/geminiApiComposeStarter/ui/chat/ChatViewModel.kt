@@ -9,8 +9,10 @@ import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import com.fahim.geminiApiComposeStarter.data.ThemeMode
 import com.fahim.geminiApiComposeStarter.data.ThemePreferences
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -20,8 +22,10 @@ class ChatViewModel(
     private val repository: GeminiRepository,
     private val history: ChatHistory,
     private val preferences: ThemePreferences,
-    hasApiKey: Boolean
+    hasApiKey: Boolean,
+    private val keyAvailability: Flow<Boolean> = flowOf(hasApiKey)
 ) : ViewModel() {
+    private val configuredKey = hasApiKey
     private val _uiState = MutableStateFlow(ChatUiState(hasApiKey = hasApiKey))
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
@@ -34,6 +38,11 @@ class ChatViewModel(
         viewModelScope.launch {
             preferences.mode.collect { mode ->
                 _uiState.update { it.copy(themeMode = mode) }
+            }
+        }
+        viewModelScope.launch {
+            keyAvailability.collect { saved ->
+                _uiState.update { it.copy(hasApiKey = configuredKey || saved) }
             }
         }
     }
@@ -107,11 +116,12 @@ class ChatViewModel(
             repository: GeminiRepository,
             history: ChatHistory,
             preferences: ThemePreferences,
-            hasApiKey: Boolean
+            hasApiKey: Boolean,
+            keyAvailability: Flow<Boolean> = flowOf(hasApiKey)
         ) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ChatViewModel(repository, history, preferences, hasApiKey) as T
+                ChatViewModel(repository, history, preferences, hasApiKey, keyAvailability) as T
         }
     }
 }
