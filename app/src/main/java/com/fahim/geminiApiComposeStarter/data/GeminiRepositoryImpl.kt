@@ -1,31 +1,30 @@
 package com.fahim.geminiApiComposeStarter.data
 
-import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
-private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-3.6-flash"
-
-class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
-) : GeminiRepository {
-
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
-
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
-        if (text != null) {
+class GeminiRepositoryImpl(private val keyStore: SecureApiKeyStore) : GeminiRepository {
+    override suspend fun generateText(prompt: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val model = GenerativeModel(modelName = MODEL_NAME, apiKey = keyStore.decryptForModel())
+            val response = withTimeout(60_000) { model.generateContent(prompt) }
+            val text = response.text?.takeIf { it.isNotBlank() }
+                ?: return@withContext Result.failure(IllegalStateException("Gemini returned no text. Try another prompt."))
             Result.success(text)
-        } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
+        } catch (error: TimeoutCancellationException) {
+            Result.failure(IllegalStateException("The request timed out. Please try again."))
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Result.failure(IllegalStateException("Unable to reach Gemini. Check your connection, API access and quota, then retry."))
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
-        Result.failure(e)
+    }
+
+    companion object {
+        const val MODEL_NAME = "gemini-3.6-flash"
     }
 }
