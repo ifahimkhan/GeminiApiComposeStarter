@@ -2,7 +2,9 @@ package com.fahim.geminiApiComposeStarter
 
 import com.fahim.geminiApiComposeStarter.data.ChatHistory
 import com.fahim.geminiApiComposeStarter.data.ChatMessage
-import com.fahim.geminiApiComposeStarter.data.GeminiRepository
+import com.fahim.geminiApiComposeStarter.data.AiProvider
+import com.fahim.geminiApiComposeStarter.data.ChatRepository
+import com.fahim.geminiApiComposeStarter.data.ModelSelectionPreferences
 import com.fahim.geminiApiComposeStarter.data.ThemeMode
 import com.fahim.geminiApiComposeStarter.data.ThemePreferences
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
@@ -31,7 +33,7 @@ class ChatViewModelTest {
 
     @Test fun sendingMessageSavesBothSidesAndClearsLoading() = runTest(dispatcher) {
         val history = FakeHistory()
-        val viewModel = ChatViewModel(FakeGemini(Result.success("Hello back")), history, FakePreferences(), true)
+        val viewModel = ChatViewModel(FakeChatRepository(Result.success("Hello back")), history, FakePreferences(), FakeModelPreferences(), setOf(AiProvider.GEMINI))
         viewModel.onPromptChange("Hello")
         viewModel.onSend()
         advanceUntilIdle()
@@ -41,7 +43,7 @@ class ChatViewModelTest {
     }
 
     @Test fun blankPromptShowsValidationError() = runTest(dispatcher) {
-        val viewModel = ChatViewModel(FakeGemini(Result.success("Unused")), FakeHistory(), FakePreferences(), true)
+        val viewModel = ChatViewModel(FakeChatRepository(Result.success("Unused")), FakeHistory(), FakePreferences(), FakeModelPreferences(), setOf(AiProvider.GEMINI))
         viewModel.onSend()
         assertTrue(viewModel.uiState.value.promptError)
         assertTrue(viewModel.uiState.value.messages.isEmpty())
@@ -49,14 +51,14 @@ class ChatViewModelTest {
 
     @Test fun apiFailurePreservesUserMessageAndShowsError() = runTest(dispatcher) {
         val viewModel = ChatViewModel(
-            FakeGemini(Result.failure(IllegalStateException("Network unavailable"))),
-            FakeHistory(), FakePreferences(), true
+            FakeChatRepository(Result.failure(IllegalStateException("Network unavailable"))),
+            FakeHistory(), FakePreferences(), FakeModelPreferences(), setOf(AiProvider.GEMINI)
         )
         viewModel.onPromptChange("Question")
         viewModel.onSend()
         advanceUntilIdle()
         assertEquals(listOf("Question"), viewModel.uiState.value.messages.map { it.text })
-        assertEquals("Could not get a Gemini response. Check your connection and key.", viewModel.uiState.value.errorMessage)
+        assertEquals("Could not get a response from Gemini. Check your connection and key.", viewModel.uiState.value.errorMessage)
         assertFalse(viewModel.uiState.value.isLoading)
     }
 
@@ -65,14 +67,37 @@ class ChatViewModelTest {
         history.save(ChatMessage("saved", "Earlier message", true))
         val preferences = FakePreferences()
         preferences.setMode(ThemeMode.DARK)
-        val viewModel = ChatViewModel(FakeGemini(Result.success("Unused")), history, preferences, false)
+        val viewModel = ChatViewModel(FakeChatRepository(Result.success("Unused")), history, preferences, FakeModelPreferences(), emptySet())
         advanceUntilIdle()
         assertEquals("Earlier message", viewModel.uiState.value.messages.single().text)
         assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
     }
 
-    private class FakeGemini(private val result: Result<String>) : GeminiRepository {
-        override suspend fun generateText(prompt: String) = result
+    @Test fun selectedProviderIsSavedAndUsedForRequests() = runTest(dispatcher) {
+        val repository = FakeChatRepository(Result.success("From DeepSeek"))
+        val models = FakeModelPreferences()
+        val viewModel = ChatViewModel(
+            repository, FakeHistory(), FakePreferences(), models, setOf(AiProvider.DEEPSEEK)
+        )
+        viewModel.onOpenModelSelector()
+        assertTrue(viewModel.uiState.value.showModelSelector)
+        viewModel.onSelectProvider(AiProvider.DEEPSEEK)
+        advanceUntilIdle()
+        assertEquals(AiProvider.DEEPSEEK, models.selectedProvider.value)
+        assertFalse(viewModel.uiState.value.showModelSelector)
+        viewModel.onPromptChange("Hello")
+        viewModel.onSend()
+        advanceUntilIdle()
+        assertEquals(AiProvider.DEEPSEEK, repository.lastProvider)
+        assertEquals("From DeepSeek", viewModel.uiState.value.messages.last().text)
+    }
+
+    private class FakeChatRepository(private val result: Result<String>) : ChatRepository {
+        var lastProvider: AiProvider? = null
+        override suspend fun generateText(provider: AiProvider, prompt: String): Result<String> {
+            lastProvider = provider
+            return result
+        }
     }
 
     private class FakeHistory : ChatHistory {
@@ -86,5 +111,10 @@ class ChatViewModelTest {
         private val state = MutableStateFlow(ThemeMode.SYSTEM)
         override val mode: Flow<ThemeMode> = state
         override suspend fun setMode(mode: ThemeMode) { state.value = mode }
+    }
+
+    private class FakeModelPreferences : ModelSelectionPreferences {
+        override val selectedProvider = MutableStateFlow(AiProvider.GEMINI)
+        override suspend fun setProvider(provider: AiProvider) { selectedProvider.value = provider }
     }
 }

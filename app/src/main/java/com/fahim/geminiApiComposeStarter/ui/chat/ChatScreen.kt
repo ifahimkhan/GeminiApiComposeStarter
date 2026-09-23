@@ -21,24 +21,25 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.data.ChatMessage
 import com.fahim.geminiApiComposeStarter.data.ThemeMode
+import com.fahim.geminiApiComposeStarter.ui.model.ModelSelectorScreen
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel, widthSizeClass: WindowWidthSizeClass) {
@@ -49,7 +50,15 @@ fun ChatRoute(viewModel: ChatViewModel, widthSizeClass: WindowWidthSizeClass) {
                 ?.firstOrNull()?.let(viewModel::onPromptChange)
         }
     }
-    ChatScreen(
+    if (state.showModelSelector) {
+        ModelSelectorScreen(
+            selectedProvider = state.selectedProvider,
+            availableProviders = state.availableProviders,
+            widthSizeClass = widthSizeClass,
+            onSelect = viewModel::onSelectProvider,
+            onBack = viewModel::onCloseModelSelector
+        )
+    } else ChatScreen(
         state = state,
         widthSizeClass = widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
@@ -57,6 +66,7 @@ fun ChatRoute(viewModel: ChatViewModel, widthSizeClass: WindowWidthSizeClass) {
         onErrorShown = viewModel::onErrorShown,
         onCycleTheme = viewModel::onCycleTheme,
         onClearHistory = viewModel::onClearHistory,
+        onOpenModelSelector = viewModel::onOpenModelSelector,
         onVoiceRequested = {
             try {
                 voiceLauncher.launch(
@@ -80,9 +90,9 @@ fun ChatScreen(
     onErrorShown: () -> Unit,
     onCycleTheme: () -> Unit,
     onClearHistory: () -> Unit,
+    onOpenModelSelector: () -> Unit,
     onVoiceRequested: () -> Unit
 ) {
-    val snackbarHost = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val maxWidth = if (widthSizeClass == WindowWidthSizeClass.Compact) 680.dp else 840.dp
     LaunchedEffect(state.messages.size, state.isLoading) {
@@ -90,20 +100,19 @@ fun ChatScreen(
             listState.animateScrollToItem(state.messages.size - 1 + if (state.isLoading) 1 else 0)
         }
     }
-    LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let {
-            snackbarHost.showSnackbar(it)
-            onErrorShown()
-        }
-    }
-    Scaffold(
-        modifier = Modifier.fillMaxSize().imePadding(),
-        snackbarHost = { SnackbarHost(snackbarHost) }
-    ) { padding ->
+    Scaffold(modifier = Modifier.fillMaxSize().imePadding()) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = maxWidth).fillMaxSize().padding(horizontal = 16.dp)) {
-                Text("Gemini Chat", style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(top = 16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text("AI Chat", style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.weight(1f).padding(top = 16.dp))
+                    TextButton(onClick = onOpenModelSelector) { Text("Models") }
+                }
+                Text(
+                    "${state.selectedProvider.displayName} · ${state.selectedProvider.modelId}",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 12.dp)) {
                     val themeLabel = when (state.themeMode) {
@@ -118,10 +127,24 @@ fun ChatScreen(
                 }
                 if (!state.hasApiKey) {
                     Text(
-                        "Add your Gemini API key to local.properties, then rebuild the app.",
+                        "Add ${state.selectedProvider.keyProperty} to local.properties, then rebuild the app.",
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
+                }
+                state.errorMessage?.let { error ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp)
+                        ) {
+                            Text(error, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onErrorContainer)
+                            TextButton(onClick = onErrorShown) { Text("Dismiss") }
+                        }
+                    }
                 }
                 LazyColumn(
                     state = listState,
@@ -138,7 +161,7 @@ fun ChatScreen(
                         item(key = "loading") {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator()
-                                Text("Gemini is thinking…", modifier = Modifier.padding(start = 12.dp))
+                                Text("${state.selectedProvider.displayName} is thinking…", modifier = Modifier.padding(start = 12.dp))
                             }
                         }
                     }
@@ -172,7 +195,7 @@ private fun MessageBubble(message: ChatMessage) {
         else MaterialTheme.colorScheme.secondaryContainer
     val alignment = if (message.fromUser) Alignment.End else Alignment.Start
     Column(Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
-        Text(if (message.fromUser) "You" else "Gemini", style = MaterialTheme.typography.labelMedium)
+        Text(if (message.fromUser) "You" else "Assistant", style = MaterialTheme.typography.labelMedium)
         Text(
             message.text,
             modifier = Modifier.widthIn(max = 620.dp)

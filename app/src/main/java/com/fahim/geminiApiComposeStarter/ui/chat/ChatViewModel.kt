@@ -5,7 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.fahim.geminiApiComposeStarter.data.ChatHistory
 import com.fahim.geminiApiComposeStarter.data.ChatMessage
-import com.fahim.geminiApiComposeStarter.data.GeminiRepository
+import com.fahim.geminiApiComposeStarter.data.AiProvider
+import com.fahim.geminiApiComposeStarter.data.ChatRepository
+import com.fahim.geminiApiComposeStarter.data.ModelSelectionPreferences
+import com.fahim.geminiApiComposeStarter.data.ProviderHttpException
 import com.fahim.geminiApiComposeStarter.data.ThemeMode
 import com.fahim.geminiApiComposeStarter.data.ThemePreferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,14 +22,15 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 class ChatViewModel(
-    private val repository: GeminiRepository,
+    private val repository: ChatRepository,
     private val history: ChatHistory,
     private val preferences: ThemePreferences,
-    hasApiKey: Boolean,
-    private val keyAvailability: Flow<Boolean> = flowOf(hasApiKey)
+    private val modelPreferences: ModelSelectionPreferences,
+    configuredProviders: Set<AiProvider>,
+    private val keyAvailability: Flow<Set<AiProvider>> = flowOf(configuredProviders)
 ) : ViewModel() {
-    private val configuredKey = hasApiKey
-    private val _uiState = MutableStateFlow(ChatUiState(hasApiKey = hasApiKey))
+    private val configuredKeys = configuredProviders
+    private val _uiState = MutableStateFlow(ChatUiState(availableProviders = configuredProviders))
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     init {
@@ -42,7 +46,12 @@ class ChatViewModel(
         }
         viewModelScope.launch {
             keyAvailability.collect { saved ->
-                _uiState.update { it.copy(hasApiKey = configuredKey || saved) }
+                _uiState.update { it.copy(availableProviders = configuredKeys + saved) }
+            }
+        }
+        viewModelScope.launch {
+            modelPreferences.selectedProvider.collect { provider ->
+                _uiState.update { it.copy(selectedProvider = provider) }
             }
         }
     }
@@ -57,6 +66,20 @@ class ChatViewModel(
 
     fun onVoiceUnavailable() {
         _uiState.update { it.copy(errorMessage = "Speech recognition is unavailable on this device.") }
+    }
+
+    fun onOpenModelSelector() {
+        if (!_uiState.value.isLoading) _uiState.update { it.copy(showModelSelector = true) }
+    }
+
+    fun onCloseModelSelector() {
+        _uiState.update { it.copy(showModelSelector = false) }
+    }
+
+    fun onSelectProvider(provider: AiProvider) {
+        if (_uiState.value.isLoading) return
+        _uiState.update { it.copy(selectedProvider = provider, showModelSelector = false, errorMessage = null) }
+        viewModelScope.launch { modelPreferences.setProvider(provider) }
     }
 
     fun onCycleTheme() {
@@ -79,8 +102,9 @@ class ChatViewModel(
             return
         }
         if (_uiState.value.isLoading) return
-        if (!_uiState.value.hasApiKey) {
-            _uiState.update { it.copy(errorMessage = "Add GEMINI_API_KEY to local.properties and rebuild.") }
+        val provider = _uiState.value.selectedProvider
+        if (provider !in _uiState.value.availableProviders) {
+            _uiState.update { it.copy(errorMessage = "Add ${provider.keyProperty} to local.properties and rebuild.") }
             return
         }
         val userMessage = ChatMessage(UUID.randomUUID().toString(), prompt, true)
@@ -90,14 +114,20 @@ class ChatViewModel(
         viewModelScope.launch {
             try {
                 history.save(userMessage)
-                repository.generateText(prompt).fold(
+                repository.generateText(provider, prompt).fold(
                     onSuccess = { answer ->
                         history.save(ChatMessage(UUID.randomUUID().toString(), answer, false))
                         _uiState.update { it.copy(isLoading = false) }
                     },
-                    onFailure = {
+                    onFailure = { error ->
+                        val detail = when ((error as? ProviderHttpException)?.status) {
+                            401 -> "Check the API key."
+                            402 -> "This account needs credits."
+                            429 -> "The account quota or rate limit was reached."
+                            else -> "Check your connection and key."
+                        }
                         _uiState.update {
-                            it.copy(isLoading = false, errorMessage = "Could not get a Gemini response. Check your connection and key.")
+                            it.copy(isLoading = false, errorMessage = "Could not get a response from ${provider.displayName}. $detail")
                         }
                     }
                 )
@@ -113,15 +143,16 @@ class ChatViewModel(
 
     companion object {
         fun factory(
-            repository: GeminiRepository,
+            repository: ChatRepository,
             history: ChatHistory,
             preferences: ThemePreferences,
-            hasApiKey: Boolean,
-            keyAvailability: Flow<Boolean> = flowOf(hasApiKey)
+            modelPreferences: ModelSelectionPreferences,
+            configuredProviders: Set<AiProvider>,
+            keyAvailability: Flow<Set<AiProvider>> = flowOf(configuredProviders)
         ) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ChatViewModel(repository, history, preferences, hasApiKey, keyAvailability) as T
+                ChatViewModel(repository, history, preferences, modelPreferences, configuredProviders, keyAvailability) as T
         }
     }
 }

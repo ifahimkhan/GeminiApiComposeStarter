@@ -24,40 +24,47 @@ class ApiKeyVault(
     context: Context,
     private val credentialStore: DataStore<Preferences> = context.credentialsDataStore
 ) {
-    private val ciphertextKey = stringPreferencesKey("ciphertext")
-    private val ivKey = stringPreferencesKey("iv")
+    private fun ciphertextKey(provider: AiProvider) = stringPreferencesKey(
+        if (provider == AiProvider.GEMINI) "ciphertext" else "${provider.name.lowercase()}_ciphertext"
+    )
+    private fun ivKey(provider: AiProvider) = stringPreferencesKey(
+        if (provider == AiProvider.GEMINI) "iv" else "${provider.name.lowercase()}_iv"
+    )
 
-    val hasKey: Flow<Boolean> = credentialStore.data.map { it[ciphertextKey] != null }
+    val availableProviders: Flow<Set<AiProvider>> = credentialStore.data.map { preferences ->
+        AiProvider.entries.filter { preferences[ciphertextKey(it)] != null }.toSet()
+    }
 
-    suspend fun storeOnFirstLaunch(apiKey: String) {
-        if (apiKey.isBlank() || hasKey.first()) return
+    suspend fun storeOnFirstLaunch(provider: AiProvider, apiKey: String) {
+        if (apiKey.isBlank() || provider in availableProviders.first()) return
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key())
+        cipher.init(Cipher.ENCRYPT_MODE, key(provider))
         val ciphertext = cipher.doFinal(apiKey.toByteArray(Charsets.UTF_8))
         credentialStore.edit {
-            if (it[ciphertextKey] == null) {
-                it[ciphertextKey] = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
-                it[ivKey] = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
+            if (it[ciphertextKey(provider)] == null) {
+                it[ciphertextKey(provider)] = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+                it[ivKey(provider)] = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
             }
         }
     }
 
-    suspend fun readForModel(): String? {
+    suspend fun readForModel(provider: AiProvider): String? {
         val preferences = credentialStore.data.first()
-        val encoded = preferences[ciphertextKey] ?: return null
-        val iv = preferences[ivKey] ?: return null
+        val encoded = preferences[ciphertextKey(provider)] ?: return null
+        val iv = preferences[ivKey(provider)] ?: return null
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
+        cipher.init(Cipher.DECRYPT_MODE, key(provider), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
         return String(cipher.doFinal(Base64.decode(encoded, Base64.NO_WRAP)), Charsets.UTF_8)
     }
 
-    private fun key(): SecretKey {
+    private fun key(provider: AiProvider): SecretKey {
+        val alias = if (provider == AiProvider.GEMINI) "gemini_api_key" else "${provider.name.lowercase()}_api_key"
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (keyStore.getKey("gemini_api_key", null) as? SecretKey)?.let { return it }
+        (keyStore.getKey(alias, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
             init(
                 KeyGenParameterSpec.Builder(
-                    "gemini_api_key",
+                    alias,
                     KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
                 ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)

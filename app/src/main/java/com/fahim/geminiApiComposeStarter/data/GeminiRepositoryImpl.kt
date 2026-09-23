@@ -8,9 +8,9 @@ import kotlinx.coroutines.withContext
 class GeminiRepositoryImpl(private val apiKeyVault: ApiKeyVault) : GeminiRepository {
     override suspend fun generateText(prompt: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val key = apiKeyVault.readForModel()
+            val key = apiKeyVault.readForModel(AiProvider.GEMINI)
                 ?: return@withContext Result.failure(IllegalStateException("Add GEMINI_API_KEY to local.properties and rebuild."))
-            val model = GenerativeModel(modelName = "gemini-3.6-flash", apiKey = key)
+            val model = GenerativeModel(modelName = AiProvider.GEMINI.modelId, apiKey = key)
             val response = model.generateContent(prompt).text
             if (response.isNullOrBlank()) Result.failure(IllegalStateException("Gemini returned an empty response."))
             else Result.success(response)

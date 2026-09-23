@@ -10,8 +10,9 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY")?.trim()
-    ?: System.getenv("GEMINI_API_KEY")?.trim().orEmpty()
+fun configuredKey(name: String): String =
+    localProperties.getProperty(name)?.trim().takeUnless { it.isNullOrBlank() }
+        ?: System.getenv(name)?.trim().orEmpty()
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -27,10 +28,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "GEMINI_API_KEY", "\"" + geminiApiKey
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n") + "\"")
+        for (name in listOf("GEMINI_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY")) {
+            val escaped = configuredKey(name)
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+            buildConfigField("String", name, "\"$escaped\"")
+        }
     }
 
     buildTypes {

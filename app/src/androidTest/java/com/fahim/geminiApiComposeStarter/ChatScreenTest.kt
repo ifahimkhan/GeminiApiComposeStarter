@@ -36,6 +36,7 @@ class ChatScreenTest {
                     onErrorShown = {},
                     onCycleTheme = {},
                     onClearHistory = {},
+                    onOpenModelSelector = {},
                     onVoiceRequested = {}
                 )
             }

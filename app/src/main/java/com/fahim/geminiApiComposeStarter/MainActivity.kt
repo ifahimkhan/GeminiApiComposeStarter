@@ -14,9 +14,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
 import com.fahim.geminiApiComposeStarter.data.ApiKeyVault
+import com.fahim.geminiApiComposeStarter.data.AiProvider
 import com.fahim.geminiApiComposeStarter.data.ChatDatabase
+import com.fahim.geminiApiComposeStarter.data.DataStoreModelSelectionPreferences
 import com.fahim.geminiApiComposeStarter.data.DataStoreThemePreferences
-import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
+import com.fahim.geminiApiComposeStarter.data.ProviderChatRepository
 import com.fahim.geminiApiComposeStarter.data.RoomChatHistory
 import com.fahim.geminiApiComposeStarter.data.ThemeMode
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
@@ -29,16 +31,24 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val vault by lazy { ApiKeyVault(applicationContext) }
+    private val configuredKeys by lazy {
+        mapOf(
+            AiProvider.GEMINI to BuildConfig.GEMINI_API_KEY,
+            AiProvider.OPENAI to BuildConfig.OPENAI_API_KEY,
+            AiProvider.DEEPSEEK to BuildConfig.DEEPSEEK_API_KEY
+        )
+    }
     private val database by lazy {
         Room.databaseBuilder(applicationContext, ChatDatabase::class.java, "chat_history.db").build()
     }
     private val viewModel: ChatViewModel by viewModels {
         ChatViewModel.factory(
-            GeminiRepositoryImpl(vault),
+            ProviderChatRepository(vault),
             RoomChatHistory(database.messages()),
             DataStoreThemePreferences(applicationContext),
-            BuildConfig.GEMINI_API_KEY.isNotBlank(),
-            vault.hasKey
+            DataStoreModelSelectionPreferences(applicationContext),
+            configuredKeys.filterValues { it.isNotBlank() }.keys,
+            vault.availableProviders
         )
     }
 
@@ -47,7 +57,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         lifecycleScope.launch(Dispatchers.IO) {
-            vault.storeOnFirstLaunch(BuildConfig.GEMINI_API_KEY)
+            configuredKeys.forEach { (provider, key) -> vault.storeOnFirstLaunch(provider, key) }
         }
         setContent {
             val themeModeFlow = remember(viewModel) {
