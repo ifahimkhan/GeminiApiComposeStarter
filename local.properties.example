@@ -1,0 +1,4 @@
+## Example local configuration
+## Copy this file to 'local.properties' and insert your actual Gemini API key.
+## Do NOT commit your real local.properties to version control.
+GEMINI_API_KEY=your_api_key_here
