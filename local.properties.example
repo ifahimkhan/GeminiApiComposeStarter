@@ -1,0 +1,5 @@
+## Example local configuration
+# Copy this file to local.properties and set your Gemini API key from Google AI Studio:
+# https://aistudio.google.com/
+sdk.dir=C\:\\Users\\Rannbir\\AppData\\Local\\Android\\Sdk
+GEMINI_API_KEY=your_api_key_here

@@ -1,7 +1,18 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini Chat</string>
+    <string name="app_title">Gemini AI</string>
+    <string name="author_subtitle">Rannbir Sachdeva (N087)</string>
+    <string name="enter_your_prompt_here">Ask Gemini anything...</string>
     <string name="send">Send</string>
+    <string name="voice_input">Voice Input</string>
+    <string name="clear_chat">Clear Chat</string>
+    <string name="clear_chat_title">Clear Conversation?</string>
+    <string name="clear_chat_message">This will remove all saved messages from local memory and reset conversation history.</string>
+    <string name="cancel">Cancel</string>
+    <string name="clear">Clear</string>
     <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="field_cannot_be_empty">Prompt cannot be empty</string>
+    <string name="empty_chat_hint">Start a conversation with Gemini!\nAsk questions, brainstorm ideas, or speak with voice input.</string>
+    <string name="speech_not_supported">Speech recognition is not available on this device</string>
+    <string name="thinking">Gemini is thinking...</string>
 </resources>
