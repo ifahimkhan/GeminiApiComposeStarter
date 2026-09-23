@@ -1,6 +1,12 @@
 package com.fahim.geminiApiComposeStarter.data
 
-/** Abstraction over the Gemini text generation call so the ViewModel can be unit tested. */
+import com.fahim.geminiApiComposeStarter.data.local.ChatMessageEntity
+import kotlinx.coroutines.flow.Flow
+
+/** Abstraction over Gemini text generation & local Room persistence. */
 interface GeminiRepository {
+    fun getChatHistory(): Flow<List<ChatMessageEntity>>
+    suspend fun saveMessage(sender: String, content: String)
+    suspend fun clearHistory()
     suspend fun generateText(prompt: String): Result<String>
 }
