@@ -1,7 +1,11 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini Pulse</string>
+    <string name="enter_your_prompt_here">Message Gemini Pulse…</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="response_placeholder">Response will appear here</string>
+    <string name="field_cannot_be_empty">Please enter a prompt first</string>
+    <string name="voice_input">Voice input</string>
+    <string name="empty_chat_title">Gemini Pulse</string>
+    <string name="empty_chat_subtitle">How can I assist you today? Type a prompt below or tap the microphone to start.</string>
+    <string name="gemini_thinking">Gemini Pulse is responding…</string>
 </resources>
