@@ -1,7 +1,13 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini AI Assistant</string>
+    <string name="enter_your_prompt_here">Ask Gemini anything...</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="field_cannot_be_empty">Prompt cannot be empty</string>
+    <string name="voice_input">Voice Input</string>
+    <string name="clear_history">Clear Chat History</string>
+    <string name="change_theme">Theme</string>
+    <string name="empty_chat_title">Welcome to Gemini AI</string>
+    <string name="empty_chat_subtitle">Type a message below or tap a suggestion to get started.</string>
+    <string name="thinking">Gemini is thinking...</string>
 </resources>

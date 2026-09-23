@@ -1,0 +1,4 @@
+# Local configuration file example.
+# Copy this file to local.properties and replace the placeholder with your actual Gemini API key.
+# IMPORTANT: Never commit your actual local.properties file to git.
+GEMINI_API_KEY=your_api_key_here
