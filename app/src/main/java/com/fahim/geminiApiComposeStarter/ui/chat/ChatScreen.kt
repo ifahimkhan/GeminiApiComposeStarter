@@ -1,5 +1,11 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,16 +37,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fahim.geminiApiComposeStarter.data.ChatMessage
+import com.fahim.geminiApiComposeStarter.data.ThemeMode
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel, widthSizeClass: WindowWidthSizeClass) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()?.let(viewModel::onPromptChange)
+        }
+    }
     ChatScreen(
         state = state,
         widthSizeClass = widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
-        onErrorShown = viewModel::onErrorShown
+        onErrorShown = viewModel::onErrorShown,
+        onCycleTheme = viewModel::onCycleTheme,
+        onClearHistory = viewModel::onClearHistory,
+        onVoiceRequested = {
+            try {
+                voiceLauncher.launch(
+                    Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                        .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        .putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak your message")
+                )
+            } catch (_: ActivityNotFoundException) {
+                viewModel.onVoiceUnavailable()
+            }
+        }
     )
 }
 
@@ -50,7 +77,10 @@ fun ChatScreen(
     widthSizeClass: WindowWidthSizeClass,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
-    onErrorShown: () -> Unit
+    onErrorShown: () -> Unit,
+    onCycleTheme: () -> Unit,
+    onClearHistory: () -> Unit,
+    onVoiceRequested: () -> Unit
 ) {
     val snackbarHost = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
@@ -72,11 +102,20 @@ fun ChatScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = maxWidth).fillMaxSize().padding(horizontal = 16.dp)) {
-                Text(
-                    "Gemini Chat",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
+                Text("Gemini Chat", style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(top = 16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 12.dp)) {
+                    val themeLabel = when (state.themeMode) {
+                        ThemeMode.SYSTEM -> "Theme: System"
+                        ThemeMode.DARK -> "Theme: Dark"
+                        ThemeMode.LIGHT -> "Theme: Light"
+                    }
+                    Button(onClick = onCycleTheme) { Text(themeLabel) }
+                    Button(onClick = onClearHistory, enabled = state.messages.isNotEmpty()) {
+                        Text("Clear chat")
+                    }
+                }
                 if (!state.hasApiKey) {
                     Text(
                         "Add your Gemini API key to local.properties, then rebuild the app.",
@@ -119,6 +158,7 @@ fun ChatScreen(
                         isError = state.promptError,
                         supportingText = if (state.promptError) ({ Text("Enter a message") }) else null
                     )
+                    Button(onClick = onVoiceRequested, enabled = !state.isLoading) { Text("Voice") }
                     Button(onClick = onSend, enabled = !state.isLoading) { Text("Send") }
                 }
             }
