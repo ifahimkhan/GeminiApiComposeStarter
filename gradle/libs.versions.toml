@@ -10,7 +10,7 @@ kotlin = "2.0.21"
 composeBom = "2024.09.00"
 generativeai = "0.9.0"
 coroutinesTest = "1.9.0"
-room = "2.6.1"
+room = "2.8.5"
 datastore = "1.1.1"
 
 [libraries]
@@ -41,3 +41,4 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+legacy-kapt = { id = "com.android.legacy-kapt", version.ref = "agp" }
