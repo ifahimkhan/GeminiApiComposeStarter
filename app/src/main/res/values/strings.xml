@@ -1,7 +1,23 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini Study Workspace</string>
+    <string name="enter_your_prompt_here">Ask Gemini or enter topic…</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="clear_history">Clear conversation</string>
+    <string name="voice_input">Voice input</string>
+    <string name="thinking">Gemini is thinking…</string>
+    <string name="empty_state_title">Gemini AI Study Workspace</string>
+    <string name="empty_state_subtitle">Your academic companion. Select a study mode below to begin.</string>
+    <string name="role_you">You</string>
+    <string name="role_gemini">Gemini</string>
+    <string name="saved_notes">Saved Study Notes</string>
+    <string name="study_insights">Study Insights</string>
+    <string name="select_mode">Change Study Mode</string>
+    <string name="attach_image">Attach Diagram or Image</string>
+    <string name="read_aloud">Read aloud</string>
+    <string name="copy_text">Copy text</string>
+    <string name="save_note">Save note</string>
+    <string name="explain_simpler">Explain simpler</string>
+    <string name="open_menu">Open study sessions</string>
 </resources>

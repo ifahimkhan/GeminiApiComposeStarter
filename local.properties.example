@@ -1,0 +1,10 @@
+# ──────────────────────────────────────────────────────────────
+# local.properties.example
+# ──────────────────────────────────────────────────────────────
+# Copy this file to local.properties and replace the placeholder
+# with your actual Gemini API key.
+#
+# local.properties is git-ignored and MUST NOT be committed.
+# ──────────────────────────────────────────────────────────────
+
+GEMINI_API_KEY=your_api_key_here
