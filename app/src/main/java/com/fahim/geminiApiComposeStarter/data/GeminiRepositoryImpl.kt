@@ -13,9 +13,10 @@ class GeminiRepositoryImpl(
 ) : GeminiRepository {
 
     private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    private var chat = model.startChat()
 
     override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
+        val response = chat.sendMessage(prompt)
         val text = response.text?.takeIf { it.isNotBlank() }
         if (text != null) {
             Result.success(text)
@@ -27,5 +28,9 @@ class GeminiRepositoryImpl(
     } catch (e: Exception) {
         Log.e(TAG, "generateContent failed", e)
         Result.failure(e)
+    }
+
+    override fun resetChat() {
+        chat = model.startChat()
     }
 }

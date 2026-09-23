@@ -48,8 +48,19 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            GeminiApiComposeStarterTheme {
-                ChatRoute(viewModel = viewModel)
+            val isDarkTheme = sharedPreferences.getBoolean("is_dark_theme", false)
+            val darkThemeState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(isDarkTheme) }
+            
+            GeminiApiComposeStarterTheme(darkTheme = darkThemeState.value) {
+                ChatRoute(
+                    viewModel = viewModel,
+                    isDarkTheme = darkThemeState.value,
+                    onThemeToggle = {
+                        val newValue = !darkThemeState.value
+                        sharedPreferences.edit().putBoolean("is_dark_theme", newValue).apply()
+                        darkThemeState.value = newValue
+                    }
+                )
             }
         }
     }
