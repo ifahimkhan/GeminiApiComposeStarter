@@ -1,31 +1,97 @@
 package com.fahim.geminiApiComposeStarter.data
 
-import android.util.Log
+import com.fahim.geminiApiComposeStarter.BuildConfig
+import com.fahim.geminiApiComposeStarter.data.security.ApiKeyStorage
 import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val keyStorage: ApiKeyStorage,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    private val mutex = Mutex()
+    private var keyPrepared = false
+    private var model: GenerativeModel? = null
 
-    override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
-        if (text != null) {
-            Result.success(text)
-        } else {
-            Result.failure(IllegalStateException("Empty response from Gemini"))
+    // Must be called while holding mutex.
+    private suspend fun prepareKey() {
+        if (keyPrepared) return
+
+        keyStorage.saveApiKey(BuildConfig.GEMINI_API_KEY)
+        keyPrepared = true
+    }
+
+    // Encrypt the configured key when the app starts.
+    suspend fun initialize(): Result<Unit> {
+        return try {
+            mutex.withLock {
+                prepareKey()
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(
+                IllegalStateException(
+                    "Could not prepare secure API-key storage."
+                )
+            )
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
-        Result.failure(e)
+    }
+
+    private suspend fun getModel(): GenerativeModel =
+        mutex.withLock {
+            model ?: run {
+                // Retry preparation if startup initialization failed.
+                prepareKey()
+
+                // Decrypt only when constructing the model.
+                GenerativeModel(
+                    modelName = modelName,
+                    apiKey = keyStorage.decryptApiKey()
+                ).also {
+                    model = it
+                }
+            }
+        }
+
+    override suspend fun generateText(prompt: String): Result<String> {
+        return try {
+            val response = getModel().generateContent(prompt)
+            val text = response.text?.takeIf { it.isNotBlank() }
+
+            if (text != null) {
+                Result.success(text)
+            } else {
+                Result.failure(
+                    IllegalStateException("Gemini returned an empty response.")
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val configuredKey = BuildConfig.GEMINI_API_KEY
+
+            val safeMessage = (e.message ?: "No error details available")
+                .let { message ->
+                    if (configuredKey.isNotBlank()) {
+                        message.replace(configuredKey, "[REDACTED]")
+                    } else {
+                        message
+                    }
+                }
+                .take(400)
+
+            Result.failure(
+                IllegalStateException(
+                    "${e.javaClass.simpleName}: $safeMessage"
+                )
+            )
+        }
     }
 }
