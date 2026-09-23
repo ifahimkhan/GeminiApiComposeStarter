@@ -1,11 +1,16 @@
-package com.fahim.geminiApiComposeStarter.ui.theme
+package com.example.geministarter.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+val GeminiBlue80 = Color(0xFFA9C7FF)
+val GeminiBlueGrey80 = Color(0xFFC0C8DD)
+val GeminiPurple80 = Color(0xFFD8BEE9)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val GeminiBlue40 = Color(0xFF3B5F9E)
+val GeminiBlueGrey40 = Color(0xFF4C5876)
+val GeminiPurple40 = Color(0xFF6C4E7C)
+
+val UserBubbleLight = Color(0xFFDCE8FF)
+val UserBubbleDark = Color(0xFF2C3E60)
+val ModelBubbleLight = Color(0xFFF0F0F2)
+val ModelBubbleDark = Color(0xFF2A2A2E)
