@@ -1,0 +1,8 @@
+## Template for local development configuration.
+# Copy this file to 'local.properties' and fill in your actual values.
+# Do NOT commit 'local.properties' to version control.
+
+sdk.dir=C\:\\Users\\YOUR_USERNAME\\AppData\\Local\\Android\\Sdk
+
+# Obtain your Gemini API key from Google AI Studio (https://aistudio.google.com/)
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
