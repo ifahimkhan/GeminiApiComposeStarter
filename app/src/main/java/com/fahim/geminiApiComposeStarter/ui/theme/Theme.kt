@@ -35,7 +35,12 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun GeminiApiComposeStarterTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: String = "SYSTEM",
+    darkTheme: Boolean = when (themeMode) {
+        "DARK" -> true
+        "LIGHT" -> false
+        else -> isSystemInDarkTheme()
+    },
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
