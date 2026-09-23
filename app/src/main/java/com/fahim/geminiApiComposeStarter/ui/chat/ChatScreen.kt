@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -33,7 +34,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fahim.geminiApiComposeStarter.R
+import com.example.n075nishantassgn1.R
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
@@ -87,7 +88,7 @@ fun ChatScreen(
 private fun ResponseArea(text: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier.verticalScroll(rememberScrollState())) {
         Icon(
-            painter = painterResource(R.drawable.ic_assistant),
+            imageVector = androidx.compose.material.icons.Icons.Filled.AutoAwesome,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.primary,
