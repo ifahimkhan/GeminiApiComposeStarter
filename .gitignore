@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+*.xml
+!app/src/main/res/**/*.xml
+!app/src/main/AndroidManifest.xml
+build_full_report.py
