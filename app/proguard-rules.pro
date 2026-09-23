@@ -1,21 +1,26 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ==========================================
+# GEMINI API COMPOSE STARTER - R8 RULES
+# ==========================================
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve annotation metadata
+-keepattributes *Annotation*
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Preserve generic type signatures
+-keepattributes Signature
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve Kotlin metadata
+-keep class kotlin.Metadata { *; }
+
+# Preserve Room database entities and generated implementations
+-keep class com.fahim.geminiApiComposeStarter.data.ChatEntity { *; }
+-keep class com.fahim.geminiApiComposeStarter.data.ChatDatabase { *; }
+-keep class com.fahim.geminiApiComposeStarter.data.ChatDao_Impl { *; }
+
+# Preserve Room generated database implementation
+-keep class com.fahim.geminiApiComposeStarter.data.ChatDatabase_Impl { *; }
+
+# Preserve Gemini SDK classes
+-keep class com.google.ai.client.generativeai.** { *; }
+
+# Preserve encrypted API key storage
+-keep class com.fahim.geminiApiComposeStarter.data.SecureApiKeyStorage { *; }
