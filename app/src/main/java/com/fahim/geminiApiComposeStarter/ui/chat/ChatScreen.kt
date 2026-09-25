@@ -1,3 +1,4 @@
+
 package com.fahim.geminiApiComposeStarter.ui.chat
 
 import androidx.compose.foundation.layout.Box
@@ -27,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -36,6 +36,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
@@ -86,11 +89,10 @@ fun ChatScreen(
 @Composable
 private fun ResponseArea(text: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier.verticalScroll(rememberScrollState())) {
-        Icon(
-            painter = painterResource(R.drawable.ic_assistant),
-            contentDescription = null,
+        Text(
+            text = "AI",
             modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
+            fontSize = 18.sp,
         )
         Text(
             text = text.toBoldAnnotatedString(),
@@ -123,6 +125,8 @@ private fun PromptBar(
             supportingText = promptError?.let {
                 { Text(stringResource(R.string.field_cannot_be_empty)) }
             },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { if (enabled) onSend() }),
         )
         FilledIconButton(onClick = onSend, enabled = enabled) {
             Icon(
