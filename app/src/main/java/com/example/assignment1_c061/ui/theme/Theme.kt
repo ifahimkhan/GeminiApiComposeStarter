@@ -1,4 +1,4 @@
-package com.fahim.geminiApiComposeStarter.ui.theme
+package com.example.assignment1_c061.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -34,7 +34,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun GeminiApiComposeStarterTheme(
+fun Assignment1C061Theme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

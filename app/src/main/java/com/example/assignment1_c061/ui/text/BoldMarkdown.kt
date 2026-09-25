@@ -1,4 +1,4 @@
-package com.fahim.geminiApiComposeStarter.ui.text
+package com.example.assignment1_c061.ui.text
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle

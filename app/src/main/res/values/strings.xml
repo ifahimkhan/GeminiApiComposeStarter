@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
+    <string name="app_name">Assignment1-C061</string>
     <string name="enter_your_prompt_here">Enter your prompt here</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>

@@ -1,4 +1,4 @@
-package com.fahim.geminiApiComposeStarter.ui.theme
+package com.example.assignment1_c061.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
