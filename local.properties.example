@@ -1,0 +1,7 @@
+# Copy this file to local.properties (already in .gitignore) and fill in your own key.
+# Get a key from Google AI Studio: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_api_key_here
+
+# Alternative: set an environment variable named Gemini_Api_Key instead of using
+# this file. build.gradle.kts falls back to it when local.properties has no key
+# (useful for CI, where the key comes from a repository secret, not a file).
