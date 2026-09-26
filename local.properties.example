@@ -1,0 +1,6 @@
+# Copy to local.properties (ignored by Git) and set your own SDK path and key.
+sdk.dir=/path/to/Android/sdk
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-3.6-flash
+# Increment to replace the encrypted credential after changing your key.
+GEMINI_KEY_VERSION=1

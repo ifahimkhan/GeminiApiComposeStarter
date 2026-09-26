@@ -1,0 +1,12 @@
+
+com.fahim.geminiApiComposeStarter.ApiKeyVaultTest:..
+com.fahim.geminiApiComposeStarter.AppFlowTest:..
+com.fahim.geminiApiComposeStarter.ChatScreenTest:........
+com.fahim.geminiApiComposeStarter.ExampleInstrumentedTest:.
+com.fahim.geminiApiComposeStarter.PersistenceTest:..
+
+Time: 129.301
+
+OK (15 tests)
+
+

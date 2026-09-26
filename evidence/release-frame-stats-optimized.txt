@@ -1,0 +1,78 @@
+Applications Graphics Acceleration Info:
+Uptime: 1873884 Realtime: 1873884
+
+** Graphics info for pid 9198 [com.fahim.geminiApiComposeStarter] **
+
+Stats since: 1841711777460ns
+Total frames rendered: 970
+Janky frames: 416 (42.89%)
+Janky frames (legacy): 961 (99.07%)
+50th percentile: 46ms
+90th percentile: 129ms
+95th percentile: 150ms
+99th percentile: 250ms
+Number Missed Vsync: 285
+Number High input latency: 1108
+Number Slow UI thread: 345
+Number Slow bitmap uploads: 82
+Number Slow issue draw commands: 416
+Number Frame deadline missed: 416
+Number Frame deadline missed (legacy): 416
+HISTOGRAM: 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=0 14ms=0 15ms=1 16ms=0 17ms=1 18ms=1 19ms=6 20ms=5 21ms=7 22ms=13 23ms=14 24ms=17 25ms=12 26ms=12 27ms=10 28ms=12 29ms=13 30ms=21 31ms=24 32ms=74 34ms=72 36ms=49 38ms=41 40ms=19 42ms=25 44ms=14 46ms=37 48ms=50 53ms=44 57ms=44 61ms=20 65ms=24 69ms=14 73ms=12 77ms=17 81ms=13 85ms=7 89ms=10 93ms=7 97ms=12 101ms=16 105ms=10 109ms=19 113ms=14 117ms=8 121ms=17 125ms=8 129ms=8 133ms=14 150ms=50 200ms=22 250ms=5 300ms=3 350ms=0 400ms=2 450ms=0 500ms=0 550ms=0 600ms=0 650ms=0 700ms=0 750ms=0 800ms=0 850ms=0 900ms=0 950ms=0 1000ms=0 1050ms=0 1100ms=0 1150ms=0 1200ms=0 1250ms=0 1300ms=0 1350ms=0 1400ms=0 1450ms=0 1500ms=0 1550ms=0 1600ms=0 1650ms=0 1700ms=0 1750ms=0 1800ms=0 1850ms=0 1900ms=0 1950ms=0 2000ms=0 2050ms=0 2100ms=0 2150ms=0 2200ms=0 2250ms=0 2300ms=0 2350ms=0 2400ms=0 2450ms=0 2500ms=0 2550ms=0 2600ms=0 2650ms=0 2700ms=0 2750ms=0 2800ms=0 2850ms=0 2900ms=0 2950ms=0 3000ms=0 3050ms=0 3100ms=0 3150ms=0 3200ms=0 3250ms=0 3300ms=0 3350ms=0 3400ms=0 3450ms=0 3500ms=0 3550ms=0 3600ms=0 3650ms=0 3700ms=0 3750ms=0 3800ms=0 3850ms=0 3900ms=0 3950ms=0 4000ms=0 4050ms=0 4100ms=0 4150ms=0 4200ms=0 4250ms=0 4300ms=0 4350ms=0 4400ms=0 4450ms=0 4500ms=0 4550ms=0 4600ms=0 4650ms=0 4700ms=0 4750ms=0 4800ms=0 4850ms=0 4900ms=0 4950ms=0
+50th gpu percentile: 10ms
+90th gpu percentile: 21ms
+95th gpu percentile: 24ms
+99th gpu percentile: 4950ms
+GPU HISTOGRAM: 1ms=0 2ms=0 3ms=10 4ms=38 5ms=88 6ms=85 7ms=82 8ms=74 9ms=78 10ms=50 11ms=56 12ms=55 13ms=42 14ms=30 15ms=28 16ms=32 17ms=31 18ms=23 19ms=28 20ms=28 21ms=31 22ms=18 23ms=11 24ms=7 25ms=2 4950ms=43
+
+Pipeline=Skia (OpenGL)
+Memory policy:
+  Max surface area: 2592000
+  Max resource usage: 124.42MB (x48)
+  Background retention: 50% (altUiHidden = true)
+  GPU Context timeout: 10
+Contexts: 1 (stopped = 0)
+CPU Caches:
+  Glyph Cache: 134.40 KB (1 entry)
+  Glyph Count: 31 
+Total CPU memory usage:
+  137626 bytes, 134.40 KB (0.00 bytes is purgeable)
+GPU Caches:
+  Other:
+    Other: 3.79 KB (1 entry)
+    Buffer Object: 2.05 KB (2 entries)
+  SW Path Mask:
+    Texture: 653.91 KB (2 entries)
+  Image:
+    Texture: 427.35 KB (17 entries)
+  Scratch:
+    Texture: 2.00 MB (1 entry)
+    Buffer Object: 3.58 MB (53 entries)
+Total GPU memory usage:
+  6960229 bytes, 6.64 MB (4.32 MB is purgeable)
+
+GraphicBufferAllocator buffers:
+            Handle |         Size |     W (Stride) x H | Layers |   Format |      Usage | Requestor
+0xb400007479010ca0 |      unknown | 1080 (   0) x 2400 |      1 |        1 | 0x     b00 | VRI[MainActivity]#0(BLAST Consumer)0
+0xb4000074790113a0 |      unknown | 1080 (   0) x 2400 |      1 |        1 | 0x     b00 | VRI[MainActivity]#0(BLAST Consumer)0
+0xb4000074790128a0 |      unknown | 1080 (   0) x 2400 |      1 |        1 | 0x     b00 | VRI[MainActivity]#0(BLAST Consumer)0
+Total allocated by GraphicBufferAllocator (estimate): 0.00 KB
+Imported gralloc buffers:
++ name:VRI[MainActivity]#0(BLAST Consumer)0, id:776, size:10125.31KiB, w/h:1080x2400, usage: 0xb00, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x8810000, compressed: false
++ name:VRI[MainActivity]#0(BLAST Consumer)0, id:775, size:10125.31KiB, w/h:1080x2400, usage: 0xb00, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x8810000, compressed: false
++ name:VRI[MainActivity]#0(BLAST Consumer)0, id:774, size:10125.31KiB, w/h:1080x2400, usage: 0xb00, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x0, compressed: false
+Total imported by gralloc: 30375.94KiB
+
+Profile data in ms:
+
+	com.fahim.geminiApiComposeStarter/com.fahim.geminiApiComposeStarter.MainActivity/android.view.ViewRootImpl@e9fb751 (visibility=0)
+View hierarchy:
+
+  com.fahim.geminiApiComposeStarter/com.fahim.geminiApiComposeStarter.MainActivity/android.view.ViewRootImpl@e9fb751
+  10 views, 15.80 kB of render nodes
+
+
+Total ViewRootImpl   : 1
+Total attached Views : 10
+Total RenderNode     : 15.80 kB (used) / 39.87 kB (capacity)
+

@@ -1,0 +1,9 @@
+
+com.fahim.geminiApiComposeStarter.ChatScreenTest:............
+com.fahim.geminiApiComposeStarter.PersistenceTest:..
+
+Time: 41.884
+
+OK (14 tests)
+
+

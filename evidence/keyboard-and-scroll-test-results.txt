@@ -1,0 +1,9 @@
+
+com.fahim.geminiApiComposeStarter.AppFlowTest:.
+com.fahim.geminiApiComposeStarter.ChatScreenTest:..
+
+Time: 5.453
+
+OK (3 tests)
+
+
