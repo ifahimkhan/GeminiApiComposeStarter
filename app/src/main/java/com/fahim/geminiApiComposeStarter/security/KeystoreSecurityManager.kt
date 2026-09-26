@@ -1,8 +1,10 @@
 package com.fahim.geminiApiComposeStarter.security
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.KeyStore
@@ -10,6 +12,8 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+
+private const val TAG = "KeystoreSecurityManager"
 
 /**
  * Manages encryption at rest for sensitive values such as the Gemini API Key.
@@ -23,27 +27,35 @@ class KeystoreSecurityManager(private val context: Context) {
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val PREFS_NAME = "secure_gemini_prefs"
+        private const val FALLBACK_PREFS_NAME = "fallback_gemini_prefs"
         private const val ENCRYPTED_KEY_PARAM = "encrypted_gemini_api_key"
     }
 
-    private val masterKey by lazy {
-        MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-    }
+    private val prefs: SharedPreferences by lazy {
+        try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
 
-    private val encryptedPrefs by lazy {
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "EncryptedSharedPreferences failed, using fallback preferences", e)
+            context.getSharedPreferences(FALLBACK_PREFS_NAME, Context.MODE_PRIVATE)
+        }
     }
 
     init {
-        ensureKeystoreKeyExists()
+        try {
+            ensureKeystoreKeyExists()
+        } catch (e: Exception) {
+            Log.e(TAG, "Keystore key generation failed", e)
+        }
     }
 
     private fun ensureKeystoreKeyExists() {
@@ -78,34 +90,22 @@ class KeystoreSecurityManager(private val context: Context) {
      */
     fun storeApiKeyEncrypted(apiKey: String) {
         if (apiKey.isBlank()) return
-        encryptedPrefs.edit().putString(ENCRYPTED_KEY_PARAM, apiKey).apply()
+        try {
+            prefs.edit().putString(ENCRYPTED_KEY_PARAM, apiKey).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to store API key", e)
+        }
     }
 
     /**
      * Decrypts the API key in memory only when GenerativeModel is initialized.
      */
     fun getDecryptedApiKey(): String {
-        return encryptedPrefs.getString(ENCRYPTED_KEY_PARAM, null) ?: ""
-    }
-
-    /**
-     * Direct AES-256-GCM cipher encryption helper (used for custom DataStore byte payloads).
-     */
-    fun encryptBytes(plainText: ByteArray): Pair<ByteArray, ByteArray> {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
-        val iv = cipher.iv
-        val encryptedData = cipher.doFinal(plainText)
-        return Pair(iv, encryptedData)
-    }
-
-    /**
-     * Direct AES-256-GCM cipher decryption helper.
-     */
-    fun decryptBytes(iv: ByteArray, encryptedData: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        val spec = GCMParameterSpec(128, iv)
-        cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), spec)
-        return cipher.doFinal(encryptedData)
+        return try {
+            prefs.getString(ENCRYPTED_KEY_PARAM, null) ?: ""
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to retrieve API key", e)
+            ""
+        }
     }
 }
