@@ -1,5 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme (Light) -->
+    <style name="Base.Theme.C049_SameedArif_MAD_Assignment1" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="android:statusBarColor">@color/purple_700</item>
+    </style>
 
-    <style name="Theme.GeminiApiComposeStarter" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.C049_SameedArif_MAD_Assignment1" parent="Base.Theme.C049_SameedArif_MAD_Assignment1"/>
 </resources>
