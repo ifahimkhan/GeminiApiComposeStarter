@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -255,6 +256,12 @@ private fun ChatBubbleItem(message: ChatMessage) {
         else -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 
+    val annotatedText: AnnotatedString = if (isUser) {
+        AnnotatedString(message.text)
+    } else {
+        message.text.toBoldAnnotatedString()
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = alignment
@@ -287,7 +294,7 @@ private fun ChatBubbleItem(message: ChatMessage) {
             ) {
                 Box(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = if (isUser) message.text else message.text.toBoldAnnotatedString(),
+                        text = annotatedText,
                         fontSize = 15.sp,
                         style = MaterialTheme.typography.bodyMedium
                     )
