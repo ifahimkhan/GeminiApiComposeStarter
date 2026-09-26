@@ -1,4 +1,4 @@
-package com.fahim.geminiApiComposeStarter.ui.theme
+package com.example.sinan_n067_assignment1.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
