@@ -1,0 +1,8 @@
+# Optional local secret scanning before every commit.
+#   pip install pre-commit && pre-commit install
+# Afterwards each `git commit` runs gitleaks and blocks commits that contain an API key.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks

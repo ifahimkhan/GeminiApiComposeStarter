@@ -1,7 +1,30 @@
 <resources>
     <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="chat_title">Gemini Chat</string>
+    <string name="enter_your_prompt_here">Message Gemini…</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="gemini_thinking">Gemini is thinking…</string>
+    <string name="empty_title">How can I help you today?</string>
+    <string name="empty_subtitle">Type a question or tap the microphone to speak. Your chat history is saved on this device.</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_prompt">Speak your prompt</string>
+    <string name="clear_chat">Clear chat history</string>
+    <string name="settings">Settings</string>
+    <string name="done">Done</string>
+    <string name="retry">Retry</string>
+    <string name="settings_response_style">Response style</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_dynamic_color">Dynamic colour (Material You)</string>
+    <string name="style_concise">Concise</string>
+    <string name="style_balanced">Balanced</string>
+    <string name="style_detailed">Detailed</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="error_missing_key">GEMINI_API_KEY is missing. Add it to local.properties and rebuild.</string>
+    <string name="error_voice_unavailable">Speech recognition is not available on this device.</string>
+    <string name="error_request">Something went wrong. Please try again.</string>
+    <string name="error_request_with_detail">Request failed: %1$s</string>
 </resources>
