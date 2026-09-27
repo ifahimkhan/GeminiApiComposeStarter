@@ -4,7 +4,16 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Declares that the app can query the device speech-recognition service (Android 11+
+         package visibility rules). We still handle the "no recognizer available" case in code. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
+        android:name=".GeminiChatApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

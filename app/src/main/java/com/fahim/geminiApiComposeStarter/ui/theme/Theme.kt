@@ -1,58 +1,78 @@
 package com.fahim.geminiApiComposeStarter.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+// Dynamic color (Material You) is intentionally NOT used: it would make the "premium, cohesive
+// brand" look the assignment asks for depend on the user's wallpaper. A fixed, designed palette
+// is used instead, with dedicated light/dark variants — not a simple inversion.
+private val LightColors = lightColorScheme(
+    primary = LightPrimary,
+    onPrimary = LightOnPrimary,
+    primaryContainer = LightPrimaryContainer,
+    onPrimaryContainer = LightOnPrimaryContainer,
+    secondary = LightSecondary,
+    background = LightBackground,
+    onBackground = LightOnPrimaryContainer,
+    surface = LightSurface,
+    onSurface = LightOnPrimaryContainer,
+    surfaceVariant = LightSurfaceVariant,
+    onSurfaceVariant = LightOnSurfaceVariant,
+    outline = LightOutline,
+    error = LightError,
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+private val DarkColors = darkColorScheme(
+    primary = DarkPrimary,
+    onPrimary = DarkOnPrimary,
+    primaryContainer = DarkPrimaryContainer,
+    onPrimaryContainer = DarkOnPrimaryContainer,
+    secondary = DarkSecondary,
+    background = DarkBackground,
+    onBackground = DarkOnPrimaryContainer,
+    surface = DarkSurface,
+    onSurface = DarkOnPrimaryContainer,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = DarkOnSurfaceVariant,
+    outline = DarkOutline,
+    error = DarkError,
+)
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+/** Colors that aren't part of the Material color scheme but are used consistently across the
+ *  chat UI (bubble backgrounds). Exposed via a small holder so screens don't hardcode branches. */
+data class ChatExtraColors(
+    val userBubble: Color,
+    val assistantBubble: Color,
+    val errorBubble: Color,
 )
 
 @Composable
 fun GeminiApiComposeStarterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val colorScheme = if (darkTheme) DarkColors else LightColors
+    val extraColors = if (darkTheme) {
+        ChatExtraColors(UserBubbleDark, AssistantBubbleDark, ErrorBubbleDark)
+    } else {
+        ChatExtraColors(UserBubbleLight, AssistantBubbleLight, ErrorBubbleLight)
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalChatExtraColors provides extraColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
+}
+
+val LocalChatExtraColors = staticCompositionLocalOf {
+    ChatExtraColors(UserBubbleLight, AssistantBubbleLight, ErrorBubbleLight)
 }
