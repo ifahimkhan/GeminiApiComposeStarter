@@ -1,7 +1,11 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
-    <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="app_name">Gemini Orbit</string>
+    <string name="enter_your_prompt_here">Message Gemini Orbit…</string>
+    <string name="send">Transmit</string>
+    <string name="response_placeholder">Orbital communication channel ready.</string>
+    <string name="field_cannot_be_empty">Please input a transmission prompt</string>
+    <string name="orbit_active">Orbit 1.5 Flash • Active</string>
+    <string name="voice_listening">Transcribing voice stream…</string>
+    <string name="mic_permission_needed">Microphone permission is required for voice input.</string>
+    <string name="copy_copied">Copied to clipboard</string>
 </resources>
