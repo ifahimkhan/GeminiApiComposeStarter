@@ -1,0 +1,6 @@
+## This file is an example template for local configuration.
+## Copy this file to local.properties and add your own real Gemini API key.
+## NEVER commit local.properties to version control.
+
+sdk.dir=/Users/username/Library/Android/sdk
+GEMINI_API_KEY=your_api_key_here

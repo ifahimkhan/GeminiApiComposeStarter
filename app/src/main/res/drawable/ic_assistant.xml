@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Gemini Sparkle Star Icon -->
+    <path
+        android:fillColor="#FF6200EE"
+        android:pathData="M12,2C12,7.52 7.52,12 2,12C7.52,12 12,16.48 12,22C12,16.48 16.48,12 22,12C16.48,12 12,7.52 12,2Z" />
+    <path
+        android:fillColor="#FF03DAC5"
+        android:pathData="M19,2C19,3.66 17.66,5 16,5C17.66,5 19,6.34 19,8C19,6.34 20.34,5 22,5C20.34,5 19,3.66 19,2Z" />
+</vector>

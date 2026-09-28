@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+*.docx
+Assignment-1.docx
