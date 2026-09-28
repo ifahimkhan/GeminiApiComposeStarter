@@ -19,7 +19,7 @@ This project is a production-grade, secure, modern Android conversational AI app
 
 Building upon the starter project, this implementation delivers:
 - A fully responsive **Jetpack Compose Material 3** chat interface.
-- Native integration with **Google's Gemini Generative AI SDK** (`gemini-1.5-flash`).
+- Native integration with **Google's Gemini Generative AI SDK** (`gemini-3.8-flash`).
 - **Android Keystore hardware-backed AES-256-GCM encryption-at-rest** for API key security.
 - **Room SQLite database** for persistent, local-first chat history with reactive Kotlin Coroutines `Flow`.
 - **Jetpack Preferences DataStore** for user preferences (theme mode, user profile, auto-scroll).
@@ -55,7 +55,7 @@ The application follows the official **Android Recommended Architecture** guidel
 ┌───────────────┴──────────────┐ ┌─────────────┴──────────────┐
 │        Remote Source         │ │         Local Storage      │
 │   Google Generative AI SDK   │ │  Room DB (SQLite Cipher)   │
-│       (gemini-1.5-flash)     │ │  Preferences DataStore     │
+│       (gemini-3.8-flash)     │ │  Preferences DataStore     │
 │                              │ │  Android Keystore (AES-GCM)│
 └──────────────────────────────┘ └────────────────────────────┘
 ```

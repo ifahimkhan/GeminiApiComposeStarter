@@ -5,7 +5,7 @@ import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
 
 private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-2.5-flash"
+private const val DEFAULT_MODEL = "gemini-3.8-flash"
 
 /**
  * Production implementation of [GeminiRepository] backed by the Google Generative AI SDK.
