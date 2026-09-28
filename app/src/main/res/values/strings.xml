@@ -1,7 +1,31 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini Chat</string>
+    <string name="enter_your_prompt_here">Ask Gemini anything…</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+
+    <!-- Additional UI Strings -->
+    <string name="voice_input">Voice input</string>
+    <string name="clear_chat">Clear chat history</string>
+    <string name="clear_chat_confirm_title">Clear Chat History</string>
+    <string name="clear_chat_confirm_desc">Are you sure you want to delete all saved conversation messages? This cannot be undone.</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="retry">Retry</string>
+    <string name="copy">Copy</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="empty_chat_title">Hello, Tanmay!</string>
+    <string name="empty_chat_subtitle">How can Gemini assist you today? Start typing or pick a topic below.</string>
+    <string name="chip_compose">Explain Jetpack Compose state hoisting</string>
+    <string name="chip_security">How does Android Keystore AES-256-GCM work?</string>
+    <string name="chip_coroutines">Show a Kotlin Flow StateFlow example</string>
+    <string name="chip_room">Why use Room with Coroutines Flow?</string>
+    <string name="student_info_title">Lab Assignment-1 Info</string>
+    <string name="student_name_label">Student: Tanmay Sharma</string>
+    <string name="student_roll_label">Roll No: N159</string>
+    <string name="student_course_label">Course: Mobile Application Development</string>
+    <string name="student_univ_label">SVKM\'s NMIMS STME</string>
+    <string name="speech_not_available">Speech recognition is not available on this device.</string>
+    <string name="voice_input_error">Could not understand audio. Please try again.</string>
 </resources>
