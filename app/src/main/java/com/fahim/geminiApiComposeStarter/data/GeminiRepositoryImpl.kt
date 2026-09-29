@@ -16,11 +16,14 @@ private const val TAG = "GeminiRepository"
 class GeminiRepositoryImpl(
     private val apiKeyProvider: ApiKeyProvider,
     private val modelName: String = GeminiConfig.MODEL_NAME,
+    private val fallbackModelName: String = GeminiConfig.FALLBACK_MODEL_NAME,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : GeminiRepository {
 
     @Volatile
     private var generativeModel: GenerativeModel? = null
+    @Volatile
+    private var fallbackGenerativeModel: GenerativeModel? = null
     @Volatile
     private var cachedApiKey: String? = null
 
@@ -32,22 +35,65 @@ class GeminiRepositoryImpl(
             )
         }
 
-        try {
-            val model = getOrCreateModel(apiKey)
-            val response = model.generateContent(prompt)
-            val text = response.text?.takeIf { it.isNotBlank() }
-            if (text != null) {
-                Result.success(text)
-            } else {
-                Result.failure(IllegalStateException("Received empty response from Gemini."))
+        val primaryModel = getOrCreateModel(apiKey)
+        var lastException: Exception? = null
+
+        // Attempt 1-2 on primary model (gemini-3.8-flash)
+        for (attempt in 1..2) {
+            try {
+                val response = primaryModel.generateContent(prompt)
+                val text = response.text?.takeIf { it.isNotBlank() }
+                if (text != null) {
+                    return@withContext Result.success(text)
+                } else {
+                    return@withContext Result.failure(IllegalStateException("Received empty response from Gemini."))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastException = e
+                val msg = e.message.orEmpty()
+                val isTransientCapacityIssue = msg.contains("503", ignoreCase = true) ||
+                        msg.contains("UNAVAILABLE", ignoreCase = true) ||
+                        msg.contains("high demand", ignoreCase = true) ||
+                        msg.contains("MissingFieldException", ignoreCase = true)
+                if (isTransientCapacityIssue && attempt < 2) {
+                    kotlinx.coroutines.delay(1000L)
+                } else if (!isTransientCapacityIssue) {
+                    break
+                }
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            val friendlyError = mapExceptionToUserFriendlyError(e)
-            Log.e(TAG, "Gemini generation failed: ${friendlyError.message}")
-            Result.failure(friendlyError)
         }
+
+        // If primary model hit capacity spike (503), attempt fallback within Gemini 3 family
+        if (lastException != null) {
+            val msg = lastException.message.orEmpty()
+            val isCapacityIssue = msg.contains("503", ignoreCase = true) ||
+                    msg.contains("UNAVAILABLE", ignoreCase = true) ||
+                    msg.contains("high demand", ignoreCase = true) ||
+                    msg.contains("MissingFieldException", ignoreCase = true)
+            if (isCapacityIssue && fallbackModelName.isNotBlank() && fallbackModelName != modelName) {
+                try {
+                    Log.w(TAG, "Primary model $modelName high demand; falling back to $fallbackModelName")
+                    val fallbackModel = getOrCreateFallbackModel(apiKey)
+                    val response = fallbackModel.generateContent(prompt)
+                    val text = response.text?.takeIf { it.isNotBlank() }
+                    if (text != null) {
+                        return@withContext Result.success(text)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+        }
+
+        val friendlyError = mapExceptionToUserFriendlyError(
+            lastException ?: IllegalStateException("An unexpected error occurred while communicating with Gemini.")
+        )
+        Log.e(TAG, "Gemini generation failed: ${friendlyError.message}")
+        Result.failure(friendlyError)
     }
 
     private fun getOrCreateModel(apiKey: String): GenerativeModel {
@@ -63,6 +109,23 @@ class GeminiRepositoryImpl(
                 cachedApiKey = apiKey
                 GenerativeModel(modelName = modelName, apiKey = apiKey).also {
                     generativeModel = it
+                }
+            }
+        }
+    }
+
+    private fun getOrCreateFallbackModel(apiKey: String): GenerativeModel {
+        val currentFallback = fallbackGenerativeModel
+        if (currentFallback != null && cachedApiKey == apiKey) {
+            return currentFallback
+        }
+        return synchronized(this) {
+            val existing = fallbackGenerativeModel
+            if (existing != null && cachedApiKey == apiKey) {
+                existing
+            } else {
+                GenerativeModel(modelName = fallbackModelName, apiKey = apiKey).also {
+                    fallbackGenerativeModel = it
                 }
             }
         }
@@ -87,6 +150,12 @@ class GeminiRepositoryImpl(
             message.contains("429", ignoreCase = true) ||
             message.contains("quota", ignoreCase = true) -> {
                 IllegalStateException("Rate limit or quota exceeded. Please wait a moment and try again.", e)
+            }
+            message.contains("503", ignoreCase = true) ||
+            message.contains("UNAVAILABLE", ignoreCase = true) ||
+            message.contains("high demand", ignoreCase = true) ||
+            message.contains("MissingFieldException", ignoreCase = true) -> {
+                IllegalStateException("The model is currently experiencing high demand. Please try again in a moment.", e)
             }
             message.contains("NOT_FOUND", ignoreCase = true) ||
             message.contains("404", ignoreCase = true) ||
