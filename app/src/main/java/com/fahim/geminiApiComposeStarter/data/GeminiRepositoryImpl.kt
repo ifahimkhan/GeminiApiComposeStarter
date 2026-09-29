@@ -10,6 +10,7 @@ private const val DEFAULT_MODEL = "gemini-3.6-flash"
 class GeminiRepositoryImpl(
     private val apiKeyProvider: () -> String?,
     private val modelName: String = DEFAULT_MODEL,
+    private val contentGenerator: (suspend (model: GenerativeModel, prompt: String) -> String?)? = null,
 ) : GeminiRepository {
 
     constructor(
@@ -34,8 +35,11 @@ class GeminiRepositoryImpl(
 
     override suspend fun generateText(prompt: String): Result<String> = try {
         val generativeModel = getModel()
-        val response = generativeModel.generateContent(prompt)
-        val text = response.text?.takeIf { it.isNotBlank() }
+        val text = if (contentGenerator != null) {
+            contentGenerator.invoke(generativeModel, prompt)
+        } else {
+            generativeModel.generateContent(prompt).text
+        }?.takeIf { it.isNotBlank() }
         if (text != null) {
             Result.success(text)
         } else {
