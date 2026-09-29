@@ -12,11 +12,12 @@ import kotlinx.coroutines.launch
 
 class ChatViewModel(
     private val repository: GeminiRepository,
-    private val hasApiKey: Boolean,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private var lastPrompt: String? = null
 
     fun onPromptChange(value: String) {
         _uiState.update { it.copy(prompt = value, promptError = null) }
@@ -28,17 +29,49 @@ class ChatViewModel(
             _uiState.update { it.copy(promptError = PromptError.EMPTY) }
             return
         }
-        if (!hasApiKey) {
-            _uiState.update { it.copy(errorMessage = MISSING_API_KEY_MESSAGE) }
-            return
-        }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        lastPrompt = prompt
+        _uiState.update {
+            it.copy(
+                prompt = "",
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+            )
+        }
+        executePrompt(prompt)
+    }
+
+    fun retry() {
+        val promptToRetry = lastPrompt ?: return
+        if (_uiState.value.isLoading) return
+
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+            )
+        }
+        executePrompt(promptToRetry)
+    }
+
+    fun clearErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    private fun executePrompt(prompt: String) {
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            response = text,
+                            errorMessage = null,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
@@ -56,11 +89,18 @@ class ChatViewModel(
         const val MISSING_API_KEY_MESSAGE =
             "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
 
+        fun factory(repository: GeminiRepository) =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    ChatViewModel(repository) as T
+            }
+
         fun factory(repository: GeminiRepository, hasApiKey: Boolean) =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ChatViewModel(repository, hasApiKey) as T
+                    ChatViewModel(repository) as T
             }
     }
 }
