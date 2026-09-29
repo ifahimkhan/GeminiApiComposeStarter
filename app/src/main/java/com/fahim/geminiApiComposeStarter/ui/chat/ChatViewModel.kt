@@ -7,6 +7,7 @@ import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -22,9 +23,14 @@ class ChatViewModel(
         _uiState.update { it.copy(prompt = value, promptError = null) }
     }
 
+    fun onClearChat() {
+        repository.resetChat()
+        _uiState.update { ChatUiState() }
+    }
+
     fun onSend() {
-        val prompt = _uiState.value.prompt.trim()
-        if (prompt.isEmpty()) {
+        val userPrompt = _uiState.value.prompt.trim()
+        if (userPrompt.isEmpty()) {
             _uiState.update { it.copy(promptError = PromptError.EMPTY) }
             return
         }
@@ -34,21 +40,51 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        val userMessage = ChatMessage(
+            text = userPrompt,
+            participant = MessageParticipant.USER,
+        )
+
+        val assistantMessage = ChatMessage(
+            text = "",
+            participant = MessageParticipant.MODEL,
+        )
+
+        _uiState.update { current ->
+            current.copy(
+                prompt = "",
+                promptError = null,
+                errorMessage = null,
+                isLoading = true,
+                messages = current.messages + userMessage + assistantMessage,
+            )
+        }
+
         viewModelScope.launch {
-            repository.generateText(prompt).fold(
-                onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
+            repository.sendMessageStream(userPrompt)
+                .catch { error ->
+                    _uiState.update { current ->
+                        current.copy(
                             isLoading = false,
                             errorMessage = error.message ?: "Something went wrong",
                         )
                     }
-                },
-            )
+                }
+                .collect { chunk ->
+                    _uiState.update { current ->
+                        val updatedMessages = current.messages.toMutableList()
+                        val lastIdx = updatedMessages.lastIndex
+                        if (lastIdx >= 0 && updatedMessages[lastIdx].participant == MessageParticipant.MODEL) {
+                            val activeMsg = updatedMessages[lastIdx]
+                            updatedMessages[lastIdx] = activeMsg.copy(text = activeMsg.text + chunk)
+                        }
+                        current.copy(
+                            isLoading = false,
+                            messages = updatedMessages,
+                        )
+                    }
+                }
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 

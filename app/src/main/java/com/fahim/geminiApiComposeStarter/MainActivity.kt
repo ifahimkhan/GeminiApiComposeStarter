@@ -6,16 +6,26 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
+import com.fahim.geminiApiComposeStarter.security.SecureKeyStorage
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
 class MainActivity : ComponentActivity() {
 
+    private val secureStorage by lazy { SecureKeyStorage(applicationContext) }
+
     private val viewModel: ChatViewModel by viewModels {
+        val key = secureStorage.getApiKey().ifBlank {
+            BuildConfig.GEMINI_API_KEY
+        }
+        if (key.isNotBlank()) {
+            secureStorage.storeApiKey(key)
+        }
+
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = BuildConfig.GEMINI_API_KEY),
-            hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
+            repository = GeminiRepositoryImpl(apiKey = key),
+            hasApiKey = key.isNotBlank(),
         )
     }
 
