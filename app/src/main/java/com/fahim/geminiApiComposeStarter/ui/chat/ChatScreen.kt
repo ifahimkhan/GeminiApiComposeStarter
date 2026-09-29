@@ -1,34 +1,62 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,109 +66,433 @@ import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
 @Composable
-fun ChatRoute(viewModel: ChatViewModel) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
+fun ChatRoute(
+    viewModel: ChatViewModel,
+    modifier: Modifier = Modifier,
+    widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     ChatScreen(
-        state = state,
+        uiState = uiState,
+        widthSizeClass = widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onRetry = viewModel::retry,
+        onDismissError = viewModel::clearErrorMessage,
+        modifier = modifier,
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    state: ChatUiState,
-    onPromptChange: (String) -> Unit,
-    onSend: () -> Unit,
+    uiState: ChatUiState,
+    widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
+    onPromptChange: (String) -> Unit = {},
+    onSend: () -> Unit = {},
+    onRetry: () -> Unit = {},
+    onDismissError: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
+
+    LaunchedEffect(uiState.errorMessage) {
+        val error = uiState.errorMessage
+        if (error != null) {
+            val result = snackbarHostState.showSnackbar(
+                message = error,
+                actionLabel = "Retry",
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                onRetry()
+            }
+            onDismissError()
+        }
+    }
+
+    val messageCount = uiState.messages.size
+    LaunchedEffect(messageCount) {
+        if (messageCount > 0) {
+            listState.animateScrollToItem(messageCount - 1)
+        }
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize().imePadding(),
+        modifier = modifier
+            .fillMaxSize()
+            .imePadding(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_assistant),
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Gemini AI",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                ResponseArea(
-                    text = state.response.ifEmpty { stringResource(R.string.response_placeholder) },
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
-                PromptBar(
-                    prompt = state.prompt,
-                    promptError = state.promptError,
-                    enabled = !state.isLoading,
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            val adaptiveModifier = when (widthSizeClass) {
+                WindowWidthSizeClass.Compact -> Modifier.fillMaxWidth()
+                WindowWidthSizeClass.Medium -> Modifier.widthIn(max = 680.dp).fillMaxWidth()
+                else -> Modifier.widthIn(max = 840.dp).fillMaxWidth()
+            }
+
+            Column(
+                modifier = adaptiveModifier.fillMaxSize(),
+            ) {
+                if (uiState.messages.isEmpty() && !uiState.isLoading) {
+                    EmptyChatGreeting(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(
+                            items = uiState.messages,
+                            key = { it.id },
+                        ) { message ->
+                            ChatMessageBubble(message = message)
+                        }
+
+                        if (uiState.isLoading) {
+                            item(key = "loading_indicator") {
+                                AssistantLoadingBubble()
+                            }
+                        }
+                    }
+                }
+
+                ChatInputBar(
+                    prompt = uiState.prompt,
+                    promptError = uiState.promptError,
+                    isLoading = uiState.isLoading,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
                 )
-            }
-            if (state.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
     }
 }
 
 @Composable
-private fun ResponseArea(text: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.verticalScroll(rememberScrollState())) {
-        Icon(
-            painter = painterResource(R.drawable.ic_assistant),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = text.toBoldAnnotatedString(),
-            fontSize = 18.sp,
-            modifier = Modifier.padding(8.dp),
-        )
-    }
-}
-
-@Composable
-private fun PromptBar(
-    prompt: String,
-    promptError: PromptError?,
-    enabled: Boolean,
-    onPromptChange: (String) -> Unit,
-    onSend: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun EmptyChatGreeting(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.padding(24.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        OutlinedTextField(
-            value = prompt,
-            onValueChange = onPromptChange,
-            modifier = Modifier.weight(1f).padding(end = 8.dp),
-            label = { Text(stringResource(R.string.enter_your_prompt_here)) },
-            minLines = 3,
-            enabled = enabled,
-            isError = promptError != null,
-            supportingText = promptError?.let {
-                { Text(stringResource(R.string.field_cannot_be_empty)) }
-            },
-        )
-        FilledIconButton(onClick = onSend, enabled = enabled) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = stringResource(R.string.send),
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(72.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_assistant),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Welcome to Gemini",
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Ask a question, generate ideas, or explore concepts with AI.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
-@Preview(showBackground = true)
+@Composable
+private fun ChatMessageBubble(
+    message: ChatMessage,
+    modifier: Modifier = Modifier,
+) {
+    val isUser = message.participant == Participant.USER
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        if (!isUser) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier
+                    .size(32.dp)
+                    .padding(bottom = 2.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_assistant),
+                        contentDescription = "Assistant",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        val bubbleShape = if (isUser) {
+            RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 4.dp)
+        } else {
+            RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp)
+        }
+
+        val bubbleColor = if (isUser) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        }
+
+        val textColor = if (isUser) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+        Box(
+            modifier = Modifier
+                .widthIn(max = 320.dp)
+                .clip(bubbleShape)
+                .background(bubbleColor)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            if (isUser) {
+                Text(
+                    text = message.text,
+                    color = textColor,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            } else {
+                Text(
+                    text = message.text.toBoldAnnotatedString(),
+                    color = textColor,
+                    style = MaterialTheme.typography.bodyLarge,
+                    lineHeight = 22.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssistantLoadingBubble(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            modifier = Modifier.size(32.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_assistant),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Gemini is thinking...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatInputBar(
+    prompt: String,
+    promptError: PromptError?,
+    isLoading: Boolean,
+    onPromptChange: (String) -> Unit,
+    onSend: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            AnimatedVisibility(
+                visible = promptError == PromptError.EMPTY,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Text(
+                    text = "Prompt cannot be empty",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 4.dp),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = prompt,
+                    onValueChange = onPromptChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(text = "Ask Gemini...")
+                    },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                    maxLines = 4,
+                    enabled = !isLoading,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Send,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (prompt.isNotBlank() && !isLoading) {
+                                onSend()
+                            }
+                        },
+                    ),
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                val isSendEnabled = prompt.isNotBlank() && !isLoading
+                IconButton(
+                    onClick = onSend,
+                    enabled = isSendEnabled,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isSendEnabled) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = if (isSendEnabled) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Light Mode Preview", showBackground = true)
 @Composable
 private fun ChatScreenPreview() {
     GeminiApiComposeStarterTheme {
         ChatScreen(
-            state = ChatUiState(response = "**Hello** from Gemini."),
-            onPromptChange = {},
-            onSend = {},
+            uiState = ChatUiState(
+                messages = listOf(
+                    ChatMessage(
+                        id = "1",
+                        text = "Can you explain quantum computing in simple terms?",
+                        participant = Participant.USER,
+                    ),
+                    ChatMessage(
+                        id = "2",
+                        text = "Quantum computing uses **qubits** instead of classical bits to process complex calculations exponentially faster.",
+                        participant = Participant.ASSISTANT,
+                    ),
+                ),
+                prompt = "Tell me more",
+            ),
+        )
+    }
+}
+
+@Preview(name = "Loading State Preview", showBackground = true)
+@Composable
+private fun ChatScreenLoadingPreview() {
+    GeminiApiComposeStarterTheme {
+        ChatScreen(
+            uiState = ChatUiState(
+                messages = listOf(
+                    ChatMessage(
+                        id = "1",
+                        text = "What is Kotlin Multiplatform?",
+                        participant = Participant.USER,
+                    ),
+                ),
+                isLoading = true,
+            ),
         )
     }
 }

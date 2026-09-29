@@ -97,6 +97,16 @@ class ChatViewModelTest {
         assertNull(viewModel.uiState.value.errorMessage)
         assertEquals(1, repo.callCount)
         assertEquals("Tell me a joke", repo.lastPromptReceived)
+
+        // Verify conversational messages
+        val messages = viewModel.uiState.value.messages
+        assertEquals(2, messages.size)
+        assertEquals("Tell me a joke", messages[0].text)
+        assertEquals(Participant.USER, messages[0].participant)
+        assertTrue(messages[0].id.isNotBlank())
+        assertEquals("Generated text", messages[1].text)
+        assertEquals(Participant.ASSISTANT, messages[1].participant)
+        assertTrue(messages[1].id.isNotBlank())
     }
 
     @Test
