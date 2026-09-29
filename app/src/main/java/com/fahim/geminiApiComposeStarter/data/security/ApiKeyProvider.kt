@@ -16,11 +16,12 @@ import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.crypto.AEADBadTagException
 
-private const val TAG = "ApiKeyProvider"
-private val Context.apiKeyDataStore: DataStore<Preferences> by preferencesDataStore(name = "gemini_secure_prefs")
+import com.fahim.geminiApiComposeStarter.data.preferences.appDataStore
 
-private val KEY_CIPHERTEXT = stringPreferencesKey("encrypted_api_key_ciphertext")
-private val KEY_IV = stringPreferencesKey("encrypted_api_key_iv")
+private const val TAG = "ApiKeyProvider"
+
+val KEY_CIPHERTEXT = stringPreferencesKey("encrypted_api_key_ciphertext")
+val KEY_IV = stringPreferencesKey("encrypted_api_key_iv")
 
 /**
  * Interface providing access to the decrypted API key in memory.
@@ -36,10 +37,11 @@ interface ApiKeyProvider {
 class SecureApiKeyProvider(
     private val context: Context,
     private val cryptoManager: CryptoManager = CryptoManager(),
+    private val dataStore: DataStore<Preferences> = context.appDataStore,
 ) : ApiKeyProvider {
 
     override suspend fun getApiKey(): String? {
-        val prefs = context.apiKeyDataStore.data
+        val prefs = dataStore.data
             .catch { exception ->
                 if (exception is IOException) {
                     Log.e(TAG, "Failed to read Preferences DataStore", exception)
@@ -84,7 +86,7 @@ class SecureApiKeyProvider(
         val buildKey = BuildConfig.GEMINI_API_KEY.trim()
         if (buildKey.isBlank()) {
             // Clear any stale ciphertext if BuildConfig key is empty
-            context.apiKeyDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences.remove(KEY_CIPHERTEXT)
                 preferences.remove(KEY_IV)
             }
@@ -94,7 +96,7 @@ class SecureApiKeyProvider(
         return try {
             cryptoManager.generateSecretKey()
             val payload = cryptoManager.encrypt(buildKey)
-            context.apiKeyDataStore.edit { preferences ->
+            dataStore.edit { preferences ->
                 preferences[KEY_CIPHERTEXT] = payload.ciphertextBase64
                 preferences[KEY_IV] = payload.ivBase64
             }
