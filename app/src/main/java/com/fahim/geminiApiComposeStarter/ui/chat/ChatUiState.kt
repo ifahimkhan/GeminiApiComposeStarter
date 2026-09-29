@@ -1,9 +1,12 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
-/** Immutable UI state for the single-screen prompt/response flow. */
+import androidx.compose.runtime.Immutable
+
+/** Immutable UI state for the conversational chat flow. */
+@Immutable
 data class ChatUiState(
     val prompt: String = "",
-    val response: String = "",
+    val messages: List<ChatMessage> = emptyList(),
     val isLoading: Boolean = false,
     val promptError: PromptError? = null,
     val errorMessage: String? = null,

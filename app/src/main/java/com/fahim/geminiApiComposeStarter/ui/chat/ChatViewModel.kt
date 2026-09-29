@@ -22,9 +22,13 @@ class ChatViewModel(
         _uiState.update { it.copy(prompt = value, promptError = null) }
     }
 
+    fun onErrorDismissed() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
     fun onSend() {
-        val prompt = _uiState.value.prompt.trim()
-        if (prompt.isEmpty()) {
+        val promptText = _uiState.value.prompt.trim()
+        if (promptText.isEmpty()) {
             _uiState.update { it.copy(promptError = PromptError.EMPTY) }
             return
         }
@@ -34,20 +38,43 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        val userMessage = ChatMessage(
+            text = promptText,
+            role = ChatRole.USER
+        )
+
+        _uiState.update { currentState ->
+            currentState.copy(
+                prompt = "",
+                messages = currentState.messages + userMessage,
+                isLoading = true,
+                errorMessage = null,
+                promptError = null
+            )
+        }
+
         viewModelScope.launch {
-            repository.generateText(prompt).fold(
-                onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
+            repository.generateText(promptText).fold(
+                onSuccess = { responseText ->
+                    val assistantMessage = ChatMessage(
+                        text = responseText,
+                        role = ChatRole.ASSISTANT
+                    )
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            messages = currentState.messages + assistantMessage,
+                            isLoading = false
                         )
                     }
                 },
+                onFailure = { error ->
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Something went wrong"
+                        )
+                    }
+                }
             )
         }
     }
