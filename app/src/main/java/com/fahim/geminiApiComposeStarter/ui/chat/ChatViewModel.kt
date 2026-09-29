@@ -71,13 +71,16 @@ class ChatViewModel(
         lastPrompt = prompt
         val userMessage = ChatMessage(text = prompt, participant = Participant.USER)
 
+        // Always add the user message optimistically so the chat list updates immediately.
+        // When historyRepository is non-null, Room's REPLACE conflict strategy ensures the
+        // Flow re-emission converges to the same state without duplicating the message.
         _uiState.update { state ->
             state.copy(
                 prompt = "",
                 isLoading = true,
                 errorMessage = null,
                 promptError = null,
-                messages = if (historyRepository == null) state.messages + userMessage else state.messages,
+                messages = state.messages + userMessage,
             )
         }
 
@@ -127,9 +130,10 @@ class ChatViewModel(
                     participant = Participant.ASSISTANT,
                 )
                 historyRepository?.insertMessage(assistantMessage)
+                // Add assistant message optimistically; Room Flow convergence handles deduplication.
                 _uiState.update { state ->
                     state.copy(
-                        messages = if (historyRepository == null) state.messages + assistantMessage else state.messages,
+                        messages = state.messages + assistantMessage,
                         isLoading = false,
                         response = text,
                         errorMessage = null,
@@ -158,15 +162,6 @@ class ChatViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 ChatViewModel(repository, historyRepository) as T
-        }
-
-        fun factory(
-            repository: GeminiRepository,
-            hasApiKey: Boolean,
-        ) = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ChatViewModel(repository) as T
         }
     }
 }

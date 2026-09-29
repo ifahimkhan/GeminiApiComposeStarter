@@ -60,6 +60,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -148,6 +149,7 @@ fun ChatRoute(
 @Composable
 fun ChatScreen(
     uiState: ChatUiState,
+    modifier: Modifier = Modifier,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
     currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
@@ -157,7 +159,6 @@ fun ChatScreen(
     onClearChat: () -> Unit = {},
     onRetry: () -> Unit = {},
     onDismissError: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -180,7 +181,7 @@ fun ChatScreen(
 
     val messageCount = uiState.messages.size
     val isLoading = uiState.isLoading
-    var prevMessageCount by remember { mutableStateOf(messageCount) }
+    var prevMessageCount by remember { mutableIntStateOf(messageCount) }
     var prevIsLoading by remember { mutableStateOf(isLoading) }
 
     LaunchedEffect(messageCount, isLoading) {
@@ -580,8 +581,8 @@ private fun ChatInputBar(
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
     onVoiceClick: () -> Unit,
-    horizontalPadding: Dp = 16.dp,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 16.dp,
 ) {
     Surface(
         modifier = modifier,
