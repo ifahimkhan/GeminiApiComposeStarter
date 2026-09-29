@@ -70,6 +70,7 @@ class ChatViewModel(
 
         lastPrompt = prompt
         val userMessage = ChatMessage(text = prompt, participant = Participant.USER)
+        val historySnapshot = _uiState.value.messages
 
         // Always add the user message optimistically so the chat list updates immediately.
         // When historyRepository is non-null, Room's REPLACE conflict strategy ensures the
@@ -86,7 +87,7 @@ class ChatViewModel(
 
         viewModelScope.launch {
             historyRepository?.insertMessage(userMessage)
-            executePrompt(prompt)
+            executePrompt(prompt, historySnapshot)
         }
     }
 
@@ -101,8 +102,9 @@ class ChatViewModel(
                 promptError = null,
             )
         }
+        val historySnapshot = _uiState.value.messages.dropLastWhile { it.participant == Participant.USER }
         viewModelScope.launch {
-            executePrompt(promptToRetry)
+            executePrompt(promptToRetry, historySnapshot)
         }
     }
 
@@ -122,8 +124,8 @@ class ChatViewModel(
         }
     }
 
-    private suspend fun executePrompt(prompt: String) {
-        repository.generateText(prompt).fold(
+    private suspend fun executePrompt(prompt: String, history: List<ChatMessage> = emptyList()) {
+        repository.generateText(prompt, history).fold(
             onSuccess = { text ->
                 val assistantMessage = ChatMessage(
                     text = text,

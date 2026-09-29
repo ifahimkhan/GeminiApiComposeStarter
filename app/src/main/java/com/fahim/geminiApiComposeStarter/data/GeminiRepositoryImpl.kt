@@ -2,7 +2,11 @@ package com.fahim.geminiApiComposeStarter.data
 
 import android.util.Log
 import com.fahim.geminiApiComposeStarter.data.security.ApiKeyProvider
+import com.fahim.geminiApiComposeStarter.ui.chat.ChatMessage
+import com.fahim.geminiApiComposeStarter.ui.chat.Participant
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.Content
+import com.google.ai.client.generativeai.type.TextPart
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +31,13 @@ class GeminiRepositoryImpl(
     @Volatile
     private var cachedApiKey: String? = null
 
-    override suspend fun generateText(prompt: String): Result<String> = withContext(ioDispatcher) {
+    override suspend fun generateText(prompt: String): Result<String> =
+        generateText(prompt, emptyList())
+
+    override suspend fun generateText(
+        prompt: String,
+        history: List<ChatMessage>,
+    ): Result<String> = withContext(ioDispatcher) {
         val apiKey = apiKeyProvider.getApiKey()
         if (apiKey.isNullOrBlank()) {
             return@withContext Result.failure(
@@ -37,11 +47,17 @@ class GeminiRepositoryImpl(
 
         val primaryModel = getOrCreateModel(apiKey)
         var lastException: Exception? = null
+        val contentHistory = buildContentHistory(history)
 
         // Attempt 1-2 on primary model (gemini-3.8-flash)
         for (attempt in 1..2) {
             try {
-                val response = primaryModel.generateContent(prompt)
+                val response = if (contentHistory.isEmpty()) {
+                    primaryModel.generateContent(prompt)
+                } else {
+                    val chat = primaryModel.startChat(contentHistory)
+                    chat.sendMessage(prompt)
+                }
                 val text = response.text?.takeIf { it.isNotBlank() }
                 if (text != null) {
                     return@withContext Result.success(text)
@@ -76,7 +92,12 @@ class GeminiRepositoryImpl(
                 try {
                     Log.w(TAG, "Primary model $modelName high demand; falling back to $fallbackModelName")
                     val fallbackModel = getOrCreateFallbackModel(apiKey)
-                    val response = fallbackModel.generateContent(prompt)
+                    val response = if (contentHistory.isEmpty()) {
+                        fallbackModel.generateContent(prompt)
+                    } else {
+                        val chat = fallbackModel.startChat(contentHistory)
+                        chat.sendMessage(prompt)
+                    }
                     val text = response.text?.takeIf { it.isNotBlank() }
                     if (text != null) {
                         return@withContext Result.success(text)
@@ -94,6 +115,37 @@ class GeminiRepositoryImpl(
         )
         Log.e(TAG, "Gemini generation failed: ${friendlyError.message}")
         Result.failure(friendlyError)
+    }
+
+    internal fun buildContentHistory(history: List<ChatMessage>): List<Content> {
+        val result = mutableListOf<Content>()
+        for (message in history) {
+            val cleanText = message.text.trim()
+            if (cleanText.isEmpty()) continue
+
+            val role = if (message.participant == Participant.USER) "user" else "model"
+            // Google Gemini API requires conversation history to begin with a user message
+            if (result.isEmpty() && role != "user") continue
+
+            val last = result.lastOrNull()
+            if (last != null && last.role == role) {
+                // If consecutive turns have the same role, combine their text parts
+                val prevText = (last.parts.firstOrNull() as? TextPart)?.text.orEmpty()
+                result[result.lastIndex] = Content(
+                    role = role,
+                    parts = listOf(TextPart("$prevText\n$cleanText")),
+                )
+            } else {
+                result.add(Content(role = role, parts = listOf(TextPart(cleanText))))
+            }
+        }
+        // startChat + sendMessage(prompt) will append the new user prompt at the end.
+        // Therefore, the history provided to startChat must end with a model turn.
+        // If history ends with a user turn, drop it so that user/model strictly alternate.
+        while (result.isNotEmpty() && result.last().role == "user") {
+            result.removeAt(result.lastIndex)
+        }
+        return result
     }
 
     private fun getOrCreateModel(apiKey: String): GenerativeModel {

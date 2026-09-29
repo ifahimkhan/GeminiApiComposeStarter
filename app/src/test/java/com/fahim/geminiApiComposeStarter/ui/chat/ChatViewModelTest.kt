@@ -41,10 +41,16 @@ class ChatViewModelTest {
     ) : GeminiRepository {
         var callCount = 0
         var lastPromptReceived: String? = null
+        var lastHistoryReceived: List<ChatMessage> = emptyList()
 
         override suspend fun generateText(prompt: String): Result<String> {
+            return generateText(prompt, emptyList())
+        }
+
+        override suspend fun generateText(prompt: String, history: List<ChatMessage>): Result<String> {
             callCount++
             lastPromptReceived = prompt
+            lastHistoryReceived = history
             return resultToReturn
         }
     }
@@ -352,6 +358,62 @@ class ChatViewModelTest {
         assertEquals(4, messages.size)
         val uniqueIds = messages.map { it.id }.toSet()
         assertEquals(4, uniqueIds.size)
+    }
+
+    @Test
+    fun onSend_secondTurn_passesPriorConversationHistoryToRepository() = runTest(testDispatcher) {
+        val repo = FakeGeminiRepository(Result.success("4"))
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onPromptChange("What is 2 + 2?")
+        viewModel.onSend()
+        advanceUntilIdle()
+
+        assertEquals("What is 2 + 2?", repo.lastPromptReceived)
+        assertTrue(repo.lastHistoryReceived.isEmpty())
+
+        // Send second turn
+        repo.resultToReturn = Result.success("40")
+        viewModel.onPromptChange("Multiply that by 10")
+        viewModel.onSend()
+        advanceUntilIdle()
+
+        assertEquals("Multiply that by 10", repo.lastPromptReceived)
+        assertEquals(2, repo.lastHistoryReceived.size)
+        assertEquals("What is 2 + 2?", repo.lastHistoryReceived[0].text)
+        assertEquals(Participant.USER, repo.lastHistoryReceived[0].participant)
+        assertEquals("4", repo.lastHistoryReceived[1].text)
+        assertEquals(Participant.ASSISTANT, repo.lastHistoryReceived[1].participant)
+    }
+
+    @Test
+    fun retry_passesPriorConversationHistoryToRepository() = runTest(testDispatcher) {
+        val repo = FakeGeminiRepository(Result.success("4"))
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onPromptChange("What is 2 + 2?")
+        viewModel.onSend()
+        advanceUntilIdle()
+
+        // Turn 2 fails
+        repo.resultToReturn = Result.failure(RuntimeException("Network error"))
+        viewModel.onPromptChange("Multiply that by 10")
+        viewModel.onSend()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.errorMessage != null)
+
+        // Retry turn 2
+        repo.resultToReturn = Result.success("40")
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals("Multiply that by 10", repo.lastPromptReceived)
+        assertEquals(2, repo.lastHistoryReceived.size)
+        assertEquals("What is 2 + 2?", repo.lastHistoryReceived[0].text)
+        assertEquals(Participant.USER, repo.lastHistoryReceived[0].participant)
+        assertEquals("4", repo.lastHistoryReceived[1].text)
+        assertEquals(Participant.ASSISTANT, repo.lastHistoryReceived[1].participant)
     }
 }
 

@@ -1,6 +1,9 @@
 package com.fahim.geminiApiComposeStarter.data
 
 import com.fahim.geminiApiComposeStarter.data.security.ApiKeyProvider
+import com.fahim.geminiApiComposeStarter.ui.chat.ChatMessage
+import com.fahim.geminiApiComposeStarter.ui.chat.Participant
+import com.google.ai.client.generativeai.type.TextPart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -99,5 +102,54 @@ class GeminiRepositoryTest {
         val repo = GeminiRepositoryImpl(apiKeyProvider = FakeApiKeyProvider("test-key"))
         val mapped = repo.mapExceptionToUserFriendlyError(RuntimeException("Something custom"))
         assertEquals("Something custom", mapped.message)
+    }
+
+    @Test
+    fun buildContentHistory_emptyList_returnsEmpty() {
+        val repo = GeminiRepositoryImpl(apiKeyProvider = FakeApiKeyProvider("test-key"))
+        val result = repo.buildContentHistory(emptyList())
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun buildContentHistory_userAndAssistantTurns_mapsRolesCorrectly() {
+        val repo = GeminiRepositoryImpl(apiKeyProvider = FakeApiKeyProvider("test-key"))
+        val history = listOf(
+            ChatMessage(text = "What is 2 + 2?", participant = Participant.USER),
+            ChatMessage(text = "2 + 2 = 4", participant = Participant.ASSISTANT),
+        )
+        val result = repo.buildContentHistory(history)
+        assertEquals(2, result.size)
+        assertEquals("user", result[0].role)
+        assertEquals("What is 2 + 2?", (result[0].parts.first() as TextPart).text)
+        assertEquals("model", result[1].role)
+        assertEquals("2 + 2 = 4", (result[1].parts.first() as TextPart).text)
+    }
+
+    @Test
+    fun buildContentHistory_startsWithAssistant_dropsInitialAssistantTurn() {
+        val repo = GeminiRepositoryImpl(apiKeyProvider = FakeApiKeyProvider("test-key"))
+        val history = listOf(
+            ChatMessage(text = "Welcome to Gemini!", participant = Participant.ASSISTANT),
+            ChatMessage(text = "Hi", participant = Participant.USER),
+            ChatMessage(text = "Hello!", participant = Participant.ASSISTANT),
+        )
+        val result = repo.buildContentHistory(history)
+        assertEquals(2, result.size)
+        assertEquals("user", result[0].role)
+        assertEquals("model", result[1].role)
+    }
+
+    @Test
+    fun buildContentHistory_endsInUserTurn_dropsTrailingUserTurn() {
+        val repo = GeminiRepositoryImpl(apiKeyProvider = FakeApiKeyProvider("test-key"))
+        val history = listOf(
+            ChatMessage(text = "What is 2 + 2?", participant = Participant.USER),
+            ChatMessage(text = "2 + 2 = 4", participant = Participant.ASSISTANT),
+            ChatMessage(text = "Unanswered user message", participant = Participant.USER),
+        )
+        val result = repo.buildContentHistory(history)
+        assertEquals(2, result.size)
+        assertEquals("model", result.last().role)
     }
 }
