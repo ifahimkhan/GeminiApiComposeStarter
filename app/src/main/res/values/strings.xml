@@ -7,4 +7,11 @@
     <string name="voice_input">Voice input</string>
     <string name="speak_to_type">Speak to type</string>
     <string name="speech_not_available">Speech recognition is not available on this device</string>
+    <string name="clear_conversation">Clear conversation</string>
+    <string name="clear_chat_dialog_title">Clear conversation?</string>
+    <string name="clear_chat_dialog_message">This will permanently delete all messages from persistent storage.</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="toggle_theme">Toggle theme</string>
 </resources>
+

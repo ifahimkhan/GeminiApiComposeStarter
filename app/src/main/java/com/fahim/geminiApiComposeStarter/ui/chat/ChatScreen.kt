@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -37,6 +38,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -110,6 +112,8 @@ fun ChatRoute(
         onVoiceClick = onVoiceClick,
         onSend = viewModel::onSend,
         onErrorDismissed = viewModel::onErrorDismissed,
+        onClearConversation = viewModel::clearConversation,
+        onToggleDarkTheme = viewModel::toggleDarkTheme,
     )
 }
 
@@ -124,9 +128,12 @@ fun ChatScreen(
     onVoiceClick: () -> Unit,
     onSend: () -> Unit,
     onErrorDismissed: () -> Unit,
+    onClearConversation: () -> Unit = {},
+    onToggleDarkTheme: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    var showClearConfirmationDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { error ->
@@ -172,6 +179,31 @@ fun ChatScreen(
         else -> Modifier.fillMaxWidth(0.85f)
     }
 
+    if (showClearConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmationDialog = false },
+            title = { Text(text = stringResource(R.string.clear_chat_dialog_title)) },
+            text = { Text(text = stringResource(R.string.clear_chat_dialog_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearConfirmationDialog = false
+                        onClearConversation()
+                    }
+                ) {
+                    Text(text = stringResource(R.string.clear))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showClearConfirmationDialog = false }
+                ) {
+                    Text(text = stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
@@ -179,25 +211,45 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = if (isCompact) Alignment.CenterStart else Alignment.Center,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_assistant),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                text = stringResource(R.string.app_name),
-                                style = MaterialTheme.typography.titleLarge,
-                            )
-                        }
+                        Icon(
+                            painter = painterResource(R.drawable.ic_assistant),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = onToggleDarkTheme,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_theme_mode),
+                            contentDescription = stringResource(R.string.toggle_theme),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    IconButton(
+                        onClick = { showClearConfirmationDialog = true },
+                        enabled = state.messages.isNotEmpty() && !state.isLoading,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_delete),
+                            contentDescription = stringResource(R.string.clear_conversation),
+                            tint = if (state.messages.isNotEmpty() && !state.isLoading) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            },
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
