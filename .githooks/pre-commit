@@ -1,0 +1,40 @@
+#!/bin/sh
+# Pre-commit hook to prevent secret leaks
+
+# 1. Block local.properties
+if git diff --cached --name-only | grep -E '(^|/)local\.properties$' > /dev/null 2>&1; then
+    echo "ERROR: local.properties is staged for commit! Aborting commit."
+    exit 1
+fi
+
+# 2. Check staged content additions for secret patterns
+STAGED_DIFF=$(git diff --cached -U0)
+
+# Check for AIza Google API key pattern
+if echo "$STAGED_DIFF" | grep -E "^\+[^+]" | grep -E "AIza[0-9A-Za-z_-]{20,}" > /dev/null 2>&1; then
+    echo "ERROR: Detected AIza-style Google API key in staged changes! Aborting commit."
+    exit 1
+fi
+
+# Check for AQ. Gemini API key pattern
+if echo "$STAGED_DIFF" | grep -E "^\+[^+]" | grep -E "AQ\.[0-9A-Za-z_-]{20,}" > /dev/null 2>&1; then
+    echo "ERROR: Detected AQ.-style Gemini API key in staged changes! Aborting commit."
+    exit 1
+fi
+
+# Check for GEMINI_API_KEY assignment (excluding placeholder YOUR_API_KEY_HERE)
+if echo "$STAGED_DIFF" | grep -E "^\+[^+]" | grep -iE "GEMINI_API_KEY\s*[:=]\s*[\"']?[A-Za-z0-9_.-]{15,}" | grep -v "YOUR_API_KEY_HERE" > /dev/null 2>&1; then
+    echo "ERROR: Detected GEMINI_API_KEY assignment in staged changes! Aborting commit."
+    exit 1
+fi
+
+# 3. If gitleaks is installed, run it
+if command -v gitleaks > /dev/null 2>&1; then
+    gitleaks protect --staged --verbose
+    if [ $? -ne 0 ]; then
+        echo "ERROR: gitleaks detected secrets in staged files! Aborting commit."
+        exit 1
+    fi
+fi
+
+exit 0

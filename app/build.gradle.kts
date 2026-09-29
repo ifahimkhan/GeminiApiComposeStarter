@@ -5,12 +5,17 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+// Read the Gemini API key from local.properties (git-ignored) or environment variable so it never lands in VCS.
+val geminiApiKey: String = run {
+    val keyFromProps = rootProject.file("local.properties").takeIf { it.exists() }?.let { file ->
+        Properties().apply {
+            file.inputStream().use { load(it) }
+        }.getProperty("GEMINI_API_KEY")?.trim()
+    }
+    keyFromProps?.ifBlank { null }
+        ?: System.getenv("GEMINI_API_KEY")?.trim()
+        ?: ""
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"

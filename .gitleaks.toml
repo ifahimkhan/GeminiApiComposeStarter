@@ -1,0 +1,19 @@
+title = "Gitleaks configuration"
+
+[[rules]]
+id = "google-api-key"
+description = "Google API Key (AIza)"
+regex = '''AIza[0-9A-Za-z\-_]{35}'''
+keywords = ["AIza"]
+
+[[rules]]
+id = "gemini-api-key-aq"
+description = "Gemini API Key (AQ style)"
+regex = '''AQ\.[0-9A-Za-z\-_]{20,}'''
+keywords = ["AQ."]
+
+[[rules]]
+id = "gemini-api-key-assignment"
+description = "GEMINI_API_KEY assignment"
+regex = '''(?i)GEMINI_API_KEY\s*[:=]\s*["']?(?!YOUR_API_KEY_HERE)[A-Za-z0-9_\-\.]{15,}["']?'''
+keywords = ["GEMINI_API_KEY"]
