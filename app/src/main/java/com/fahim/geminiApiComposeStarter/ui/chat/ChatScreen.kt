@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -119,6 +120,13 @@ fun ChatScreen(
         }
     }
 
+    // Adaptive sizing parameters for compact, medium, and expanded windows
+    val (maxContainerWidth, horizontalPadding, bubbleMaxWidth) = when (widthSizeClass) {
+        WindowWidthSizeClass.Compact -> Triple(Dp.Unspecified, 16.dp, 300.dp)
+        WindowWidthSizeClass.Medium -> Triple(640.dp, 24.dp, 440.dp)
+        else -> Triple(800.dp, 32.dp, 540.dp)
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -126,7 +134,15 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (maxContainerWidth != Dp.Unspecified) Modifier.widthIn(max = maxContainerWidth)
+                                else Modifier
+                            ),
+                    ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_assistant),
                             contentDescription = null,
@@ -155,14 +171,16 @@ fun ChatScreen(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter,
         ) {
-            val adaptiveModifier = when (widthSizeClass) {
-                WindowWidthSizeClass.Compact -> Modifier.fillMaxWidth()
-                WindowWidthSizeClass.Medium -> Modifier.widthIn(max = 680.dp).fillMaxWidth()
-                else -> Modifier.widthIn(max = 840.dp).fillMaxWidth()
+            val containerModifier = if (maxContainerWidth != Dp.Unspecified) {
+                Modifier
+                    .widthIn(max = maxContainerWidth)
+                    .fillMaxWidth()
+            } else {
+                Modifier.fillMaxWidth()
             }
 
             Column(
-                modifier = adaptiveModifier.fillMaxSize(),
+                modifier = containerModifier.fillMaxSize(),
             ) {
                 if (uiState.messages.isEmpty() && !uiState.isLoading) {
                     EmptyChatGreeting(
@@ -176,14 +194,17 @@ fun ChatScreen(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(
                             items = uiState.messages,
                             key = { it.id },
                         ) { message ->
-                            ChatMessageBubble(message = message)
+                            ChatMessageBubble(
+                                message = message,
+                                maxBubbleWidth = bubbleMaxWidth,
+                            )
                         }
 
                         if (uiState.isLoading) {
@@ -200,6 +221,7 @@ fun ChatScreen(
                     isLoading = uiState.isLoading,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    horizontalPadding = horizontalPadding,
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding(),
@@ -252,6 +274,7 @@ private fun EmptyChatGreeting(modifier: Modifier = Modifier) {
 @Composable
 private fun ChatMessageBubble(
     message: ChatMessage,
+    maxBubbleWidth: Dp,
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.participant == Participant.USER
@@ -301,7 +324,7 @@ private fun ChatMessageBubble(
 
         Box(
             modifier = Modifier
-                .widthIn(max = 320.dp)
+                .widthIn(max = maxBubbleWidth)
                 .clip(bubbleShape)
                 .background(bubbleColor)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -376,6 +399,7 @@ private fun ChatInputBar(
     isLoading: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    horizontalPadding: Dp = 16.dp,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -383,7 +407,7 @@ private fun ChatInputBar(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)) {
             AnimatedVisibility(
                 visible = promptError == PromptError.EMPTY,
                 enter = fadeIn(),
@@ -454,9 +478,9 @@ private fun ChatInputBar(
     }
 }
 
-@Preview(name = "Light Mode Preview", showBackground = true)
+@Preview(name = "Compact Phone Preview", widthDp = 360, heightDp = 640, showBackground = true)
 @Composable
-private fun ChatScreenPreview() {
+private fun ChatScreenCompactPreview() {
     GeminiApiComposeStarterTheme {
         ChatScreen(
             uiState = ChatUiState(
@@ -474,25 +498,55 @@ private fun ChatScreenPreview() {
                 ),
                 prompt = "Tell me more",
             ),
+            widthSizeClass = WindowWidthSizeClass.Compact,
         )
     }
 }
 
-@Preview(name = "Loading State Preview", showBackground = true)
+@Preview(name = "Medium Tablet / Landscape Preview", widthDp = 700, heightDp = 500, showBackground = true)
 @Composable
-private fun ChatScreenLoadingPreview() {
+private fun ChatScreenMediumPreview() {
     GeminiApiComposeStarterTheme {
         ChatScreen(
             uiState = ChatUiState(
                 messages = listOf(
                     ChatMessage(
                         id = "1",
-                        text = "What is Kotlin Multiplatform?",
+                        text = "Show me an example in Kotlin.",
                         participant = Participant.USER,
                     ),
+                    ChatMessage(
+                        id = "2",
+                        text = "Here is an example using **StateFlow** in Kotlin coroutines.",
+                        participant = Participant.ASSISTANT,
+                    ),
                 ),
-                isLoading = true,
             ),
+            widthSizeClass = WindowWidthSizeClass.Medium,
+        )
+    }
+}
+
+@Preview(name = "Expanded Tablet / Foldable Preview", widthDp = 1000, heightDp = 800, showBackground = true)
+@Composable
+private fun ChatScreenExpandedPreview() {
+    GeminiApiComposeStarterTheme {
+        ChatScreen(
+            uiState = ChatUiState(
+                messages = listOf(
+                    ChatMessage(
+                        id = "1",
+                        text = "What are the benefits of adaptive layouts?",
+                        participant = Participant.USER,
+                    ),
+                    ChatMessage(
+                        id = "2",
+                        text = "Adaptive layouts ensure that apps look stunning and remain ergonomically usable across phones, foldables, tablets, and desktop displays.",
+                        participant = Participant.ASSISTANT,
+                    ),
+                ),
+            ),
+            widthSizeClass = WindowWidthSizeClass.Expanded,
         )
     }
 }
