@@ -5,11 +5,9 @@ import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.CancellationException
 
 private const val TAG = "GeminiRepository"
-private const val DEFAULT_MODEL = "gemini-3.6-flash"
-
 class GeminiRepositoryImpl(
     apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    modelName: String = GeminiConfig.MODEL_NAME,
 ) : GeminiRepository {
 
     private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
