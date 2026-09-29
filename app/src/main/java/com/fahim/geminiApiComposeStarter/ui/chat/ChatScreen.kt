@@ -105,14 +105,13 @@ fun ChatRoute(
         }
     }
 
-    ChatScreen(
-        uiState = uiState,
-        widthSizeClass = widthSizeClass,
-        currentThemeMode = currentThemeMode,
-        onThemeModeChange = onThemeModeChange,
-        onPromptChange = viewModel::onPromptChange,
-        onSend = viewModel::onSend,
-        onVoiceClick = {
+    val onPromptChange = remember(viewModel) { { value: String -> viewModel.onPromptChange(value) } }
+    val onSend = remember(viewModel) { { viewModel.onSend() } }
+    val onClearChat = remember(viewModel) { { viewModel.clearChat() } }
+    val onRetry = remember(viewModel) { { viewModel.retry() } }
+    val onDismissError = remember(viewModel) { { viewModel.clearErrorMessage() } }
+    val onVoiceClick = remember(speechRecognizerLauncher, viewModel) {
+        {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(
                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -127,10 +126,20 @@ fun ChatRoute(
             } catch (e: Exception) {
                 viewModel.onVoiceError("Speech recognition isn't available on this device.")
             }
-        },
-        onClearChat = viewModel::clearChat,
-        onRetry = viewModel::retry,
-        onDismissError = viewModel::clearErrorMessage,
+        }
+    }
+
+    ChatScreen(
+        uiState = uiState,
+        widthSizeClass = widthSizeClass,
+        currentThemeMode = currentThemeMode,
+        onThemeModeChange = onThemeModeChange,
+        onPromptChange = onPromptChange,
+        onSend = onSend,
+        onVoiceClick = onVoiceClick,
+        onClearChat = onClearChat,
+        onRetry = onRetry,
+        onDismissError = onDismissError,
         modifier = modifier,
     )
 }
@@ -170,10 +179,17 @@ fun ChatScreen(
     }
 
     val messageCount = uiState.messages.size
-    LaunchedEffect(messageCount) {
-        if (messageCount > 0) {
-            listState.animateScrollToItem(messageCount - 1)
+    val isLoading = uiState.isLoading
+    var prevMessageCount by remember { mutableStateOf(messageCount) }
+    var prevIsLoading by remember { mutableStateOf(isLoading) }
+
+    LaunchedEffect(messageCount, isLoading) {
+        val totalCount = messageCount + if (isLoading) 1 else 0
+        if (totalCount > 0 && (messageCount > prevMessageCount || (isLoading && !prevIsLoading))) {
+            listState.animateScrollToItem(totalCount - 1)
         }
+        prevMessageCount = messageCount
+        prevIsLoading = isLoading
     }
 
     // Adaptive sizing parameters for compact, medium, and expanded windows
@@ -499,8 +515,9 @@ private fun ChatMessageBubble(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             } else {
+                val formattedText = remember(message.text) { message.text.toBoldAnnotatedString() }
                 Text(
-                    text = message.text.toBoldAnnotatedString(),
+                    text = formattedText,
                     color = textColor,
                     style = MaterialTheme.typography.bodyLarge,
                     lineHeight = 22.sp,

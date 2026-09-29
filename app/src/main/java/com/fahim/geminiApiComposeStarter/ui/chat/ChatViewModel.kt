@@ -98,7 +98,9 @@ class ChatViewModel(
                 promptError = null,
             )
         }
-        executePrompt(promptToRetry)
+        viewModelScope.launch {
+            executePrompt(promptToRetry)
+        }
     }
 
     fun clearErrorMessage() {
@@ -117,34 +119,32 @@ class ChatViewModel(
         }
     }
 
-    private fun executePrompt(prompt: String) {
-        viewModelScope.launch {
-            repository.generateText(prompt).fold(
-                onSuccess = { text ->
-                    val assistantMessage = ChatMessage(
-                        text = text,
-                        participant = Participant.ASSISTANT,
+    private suspend fun executePrompt(prompt: String) {
+        repository.generateText(prompt).fold(
+            onSuccess = { text ->
+                val assistantMessage = ChatMessage(
+                    text = text,
+                    participant = Participant.ASSISTANT,
+                )
+                historyRepository?.insertMessage(assistantMessage)
+                _uiState.update { state ->
+                    state.copy(
+                        messages = if (historyRepository == null) state.messages + assistantMessage else state.messages,
+                        isLoading = false,
+                        response = text,
+                        errorMessage = null,
                     )
-                    historyRepository?.insertMessage(assistantMessage)
-                    _uiState.update { state ->
-                        state.copy(
-                            messages = if (historyRepository == null) state.messages + assistantMessage else state.messages,
-                            isLoading = false,
-                            response = text,
-                            errorMessage = null,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
-                        )
-                    }
-                },
-            )
-        }
+                }
+            },
+            onFailure = { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        errorMessage = error.message ?: "Something went wrong",
+                    )
+                }
+            },
+        )
     }
 
     companion object {

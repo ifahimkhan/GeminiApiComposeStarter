@@ -9,9 +9,12 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.fahim.geminiApiComposeStarter.BuildConfig
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.crypto.AEADBadTagException
@@ -38,9 +41,10 @@ class SecureApiKeyProvider(
     private val context: Context,
     private val cryptoManager: CryptoManager = CryptoManager(),
     private val dataStore: DataStore<Preferences> = context.appDataStore,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ApiKeyProvider {
 
-    override suspend fun getApiKey(): String? {
+    override suspend fun getApiKey(): String? = withContext(ioDispatcher) {
         val prefs = dataStore.data
             .catch { exception ->
                 if (exception is IOException) {
@@ -59,7 +63,7 @@ class SecureApiKeyProvider(
             try {
                 val decrypted = cryptoManager.decrypt(ciphertext, iv)
                 if (decrypted.isNotBlank()) {
-                    return decrypted
+                    return@withContext decrypted
                 }
             } catch (e: Exception) {
                 when (e) {
@@ -74,12 +78,12 @@ class SecureApiKeyProvider(
                     }
                 }
                 // Corrupted ciphertext, invalid tag, or lost key: safely re-seed
-                return reseedFromBuildConfig()
+                return@withContext reseedFromBuildConfig()
             }
         }
 
         // First launch or missing encrypted key: seed from BuildConfig if present
-        return reseedFromBuildConfig()
+        reseedFromBuildConfig()
     }
 
     private suspend fun reseedFromBuildConfig(): String? {

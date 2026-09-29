@@ -1,5 +1,6 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import androidx.compose.runtime.Immutable
 import java.util.UUID
 
 enum class Participant {
@@ -11,6 +12,7 @@ enum class Participant {
  * Represents a single message bubble in the conversation.
  * IDs are stable and unique.
  */
+@Immutable
 data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
     val text: String,
@@ -21,6 +23,7 @@ data class ChatMessage(
 /**
  * Immutable UI state for the conversational chat flow.
  */
+@Immutable
 data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val prompt: String = "",
