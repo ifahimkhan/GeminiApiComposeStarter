@@ -23,6 +23,29 @@ class ChatViewModel(
         _uiState.update { it.copy(prompt = value, promptError = null) }
     }
 
+    /**
+     * Receives recognized speech and updates the prompt without auto-sending.
+     */
+    fun onVoiceResult(recognizedText: String) {
+        val cleanSpeech = recognizedText.trim()
+        if (cleanSpeech.isEmpty()) return
+
+        val currentPrompt = _uiState.value.prompt.trim()
+        val newPrompt = if (currentPrompt.isEmpty()) {
+            cleanSpeech
+        } else {
+            "$currentPrompt $cleanSpeech"
+        }
+        _uiState.update { it.copy(prompt = newPrompt, promptError = null) }
+    }
+
+    /**
+     * Updates the error message when speech recognition is unavailable or fails.
+     */
+    fun onVoiceError(message: String = "Speech recognition isn't available on this device.") {
+        _uiState.update { it.copy(errorMessage = message) }
+    }
+
     fun onSend() {
         val prompt = _uiState.value.prompt.trim()
         if (prompt.isEmpty()) {

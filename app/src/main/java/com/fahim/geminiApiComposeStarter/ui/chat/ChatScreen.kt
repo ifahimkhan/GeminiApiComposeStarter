@@ -1,5 +1,11 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -73,11 +79,41 @@ fun ChatRoute(
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                viewModel.onVoiceResult(spokenText)
+            }
+        }
+    }
+
     ChatScreen(
         uiState = uiState,
         widthSizeClass = widthSizeClass,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
+        onVoiceClick = {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                )
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Gemini...")
+            }
+            try {
+                speechRecognizerLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                viewModel.onVoiceError("Speech recognition isn't available on this device.")
+            } catch (e: Exception) {
+                viewModel.onVoiceError("Speech recognition isn't available on this device.")
+            }
+        },
         onRetry = viewModel::retry,
         onDismissError = viewModel::clearErrorMessage,
         modifier = modifier,
@@ -91,6 +127,7 @@ fun ChatScreen(
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
     onPromptChange: (String) -> Unit = {},
     onSend: () -> Unit = {},
+    onVoiceClick: () -> Unit = {},
     onRetry: () -> Unit = {},
     onDismissError: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -221,6 +258,7 @@ fun ChatScreen(
                     isLoading = uiState.isLoading,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onVoiceClick = onVoiceClick,
                     horizontalPadding = horizontalPadding,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -399,6 +437,7 @@ private fun ChatInputBar(
     isLoading: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoiceClick: () -> Unit,
     horizontalPadding: Dp = 16.dp,
     modifier: Modifier = Modifier,
 ) {
@@ -452,7 +491,26 @@ private fun ChatInputBar(
                     ),
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+
+                IconButton(
+                    onClick = onVoiceClick,
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_mic),
+                        contentDescription = "Voice input",
+                        modifier = Modifier.size(24.dp),
+                        tint = if (!isLoading) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
 
                 val isSendEnabled = prompt.isNotBlank() && !isLoading
                 IconButton(

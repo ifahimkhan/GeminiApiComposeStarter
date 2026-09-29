@@ -145,4 +145,44 @@ class ChatViewModelTest {
         assertEquals("Success on retry", viewModel.uiState.value.response)
         assertNull(viewModel.uiState.value.errorMessage)
     }
+
+    @Test
+    fun onVoiceResult_whenPromptEmpty_setsPromptAndDoesNotSend() {
+        val repo = FakeGeminiRepository()
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onVoiceResult("Hello from speech recognition")
+
+        assertEquals("Hello from speech recognition", viewModel.uiState.value.prompt)
+        assertNull(viewModel.uiState.value.promptError)
+        assertEquals(0, repo.callCount)
+        assertTrue(viewModel.uiState.value.messages.isEmpty())
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun onVoiceResult_whenPromptNotEmpty_appendsToExistingPrompt() {
+        val repo = FakeGeminiRepository()
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onPromptChange("Write a poem about")
+        viewModel.onVoiceResult("the night sky")
+
+        assertEquals("Write a poem about the night sky", viewModel.uiState.value.prompt)
+        assertEquals(0, repo.callCount)
+    }
+
+    @Test
+    fun onVoiceError_setsErrorMessage() {
+        val repo = FakeGeminiRepository()
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onVoiceError("Speech recognition isn't available on this device.")
+
+        assertEquals(
+            "Speech recognition isn't available on this device.",
+            viewModel.uiState.value.errorMessage
+        )
+    }
 }
+
