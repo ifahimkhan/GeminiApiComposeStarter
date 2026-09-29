@@ -68,7 +68,7 @@ class GeminiRepositoryImpl(
         }
     }
 
-    private fun mapExceptionToUserFriendlyError(e: Exception): Exception {
+    internal fun mapExceptionToUserFriendlyError(e: Exception): Exception {
         val message = e.message.orEmpty()
         return when {
             e is UnknownHostException || e is SocketTimeoutException || e is IOException -> {

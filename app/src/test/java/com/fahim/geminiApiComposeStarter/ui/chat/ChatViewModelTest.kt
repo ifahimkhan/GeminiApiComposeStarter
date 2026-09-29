@@ -302,5 +302,57 @@ class ChatViewModelTest {
         assertEquals("Question to retry", viewModel.uiState.value.messages[0].text)
         assertEquals("Success on second attempt", viewModel.uiState.value.messages[1].text)
     }
+
+    @Test
+    fun clearErrorMessage_resetsErrorMessageToNull() {
+        val repo = FakeGeminiRepository()
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onVoiceError("Temporary error")
+        assertEquals("Temporary error", viewModel.uiState.value.errorMessage)
+
+        viewModel.clearErrorMessage()
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun onSend_whenAlreadyLoading_ignoresSubsequentSend() = runTest(testDispatcher) {
+        val repo = FakeGeminiRepository(Result.success("First answer"))
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onPromptChange("First question")
+        viewModel.onSend()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        // Attempt second send while first is still loading
+        viewModel.onPromptChange("Second question")
+        viewModel.onSend()
+
+        advanceUntilIdle()
+
+        // Call count should be exactly 1, ignoring concurrent send
+        assertEquals(1, repo.callCount)
+        assertEquals("First question", repo.lastPromptReceived)
+    }
+
+    @Test
+    fun messageIds_areUniqueAcrossTurns() = runTest(testDispatcher) {
+        val repo = FakeGeminiRepository(Result.success("Answer"))
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onPromptChange("Turn 1")
+        viewModel.onSend()
+        advanceUntilIdle()
+
+        viewModel.onPromptChange("Turn 2")
+        viewModel.onSend()
+        advanceUntilIdle()
+
+        val messages = viewModel.uiState.value.messages
+        assertEquals(4, messages.size)
+        val uniqueIds = messages.map { it.id }.toSet()
+        assertEquals(4, uniqueIds.size)
+    }
 }
+
 
