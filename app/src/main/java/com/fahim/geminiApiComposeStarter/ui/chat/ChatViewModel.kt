@@ -7,8 +7,12 @@ import com.fahim.geminiApiComposeStarter.data.ChatHistoryRepository
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import com.fahim.geminiApiComposeStarter.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -21,6 +25,19 @@ class ChatViewModel(
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    /**
+     * Dedicated state flow for dark theme preference, avoiding unnecessary root recompositions
+     * when message list or prompt text changes.
+     */
+    val isDarkTheme: StateFlow<Boolean> = _uiState
+        .map { it.isDarkTheme }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = _uiState.value.isDarkTheme,
+        )
 
     init {
         chatHistoryRepository?.let { historyRepo ->

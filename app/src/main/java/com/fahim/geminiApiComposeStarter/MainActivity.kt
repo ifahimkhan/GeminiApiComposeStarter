@@ -59,9 +59,9 @@ class MainActivity : ComponentActivity() {
         }
         enableEdgeToEdge()
         setContent {
-            val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
             val windowSizeClass = calculateWindowSizeClass(this)
-            GeminiApiComposeStarterTheme(darkTheme = state.isDarkTheme) {
+            GeminiApiComposeStarterTheme(darkTheme = isDarkTheme) {
                 ChatRoute(
                     viewModel = viewModel,
                     windowWidthSizeClass = windowSizeClass.widthSizeClass,

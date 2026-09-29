@@ -84,22 +84,26 @@ fun ChatRoute(
         }
     }
 
-    val onVoiceClick: () -> Unit = {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
-            )
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(
-                RecognizerIntent.EXTRA_PROMPT,
-                context.getString(R.string.speak_to_type),
-            )
-        }
-        try {
-            speechRecognizerLauncher.launch(intent)
-        } catch (e: ActivityNotFoundException) {
-            voiceErrorMessage = context.getString(R.string.speech_not_available)
+    val onVoiceErrorDismissed = remember { { voiceErrorMessage = null } }
+
+    val onVoiceClick: () -> Unit = remember(context, speechRecognizerLauncher) {
+        {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                )
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                putExtra(
+                    RecognizerIntent.EXTRA_PROMPT,
+                    context.getString(R.string.speak_to_type),
+                )
+            }
+            try {
+                speechRecognizerLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                voiceErrorMessage = context.getString(R.string.speech_not_available)
+            }
         }
     }
 
@@ -107,7 +111,7 @@ fun ChatRoute(
         state = state,
         windowWidthSizeClass = windowWidthSizeClass,
         voiceErrorMessage = voiceErrorMessage,
-        onVoiceErrorDismissed = { voiceErrorMessage = null },
+        onVoiceErrorDismissed = onVoiceErrorDismissed,
         onPromptChange = viewModel::onPromptChange,
         onVoiceClick = onVoiceClick,
         onSend = viewModel::onSend,
@@ -116,6 +120,22 @@ fun ChatRoute(
         onToggleDarkTheme = viewModel::toggleDarkTheme,
     )
 }
+
+private val UserBubbleShape = RoundedCornerShape(
+    topStart = 18.dp,
+    topEnd = 18.dp,
+    bottomStart = 18.dp,
+    bottomEnd = 4.dp,
+)
+
+private val AssistantBubbleShape = RoundedCornerShape(
+    topStart = 18.dp,
+    topEnd = 18.dp,
+    bottomStart = 4.dp,
+    bottomEnd = 18.dp,
+)
+
+private val PromptTextFieldShape = RoundedCornerShape(24.dp)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,25 +178,31 @@ fun ChatScreen(
 
     val isCompact = windowWidthSizeClass == WindowWidthSizeClass.Compact
 
-    val maxContentWidth = when (windowWidthSizeClass) {
-        WindowWidthSizeClass.Compact -> Dp.Unspecified
-        WindowWidthSizeClass.Medium -> 720.dp
-        WindowWidthSizeClass.Expanded -> 840.dp
-        else -> Dp.Unspecified
+    val maxContentWidth = remember(windowWidthSizeClass) {
+        when (windowWidthSizeClass) {
+            WindowWidthSizeClass.Compact -> Dp.Unspecified
+            WindowWidthSizeClass.Medium -> 720.dp
+            WindowWidthSizeClass.Expanded -> 840.dp
+            else -> Dp.Unspecified
+        }
     }
 
-    val horizontalPadding = when (windowWidthSizeClass) {
-        WindowWidthSizeClass.Compact -> 16.dp
-        WindowWidthSizeClass.Medium -> 24.dp
-        WindowWidthSizeClass.Expanded -> 32.dp
-        else -> 16.dp
+    val horizontalPadding = remember(windowWidthSizeClass) {
+        when (windowWidthSizeClass) {
+            WindowWidthSizeClass.Compact -> 16.dp
+            WindowWidthSizeClass.Medium -> 24.dp
+            WindowWidthSizeClass.Expanded -> 32.dp
+            else -> 16.dp
+        }
     }
 
-    val bubbleMaxWidthModifier: Modifier = when (windowWidthSizeClass) {
-        WindowWidthSizeClass.Compact -> Modifier.fillMaxWidth(0.85f)
-        WindowWidthSizeClass.Medium -> Modifier.widthIn(max = 520.dp)
-        WindowWidthSizeClass.Expanded -> Modifier.widthIn(max = 600.dp)
-        else -> Modifier.fillMaxWidth(0.85f)
+    val bubbleMaxWidthModifier: Modifier = remember(windowWidthSizeClass) {
+        when (windowWidthSizeClass) {
+            WindowWidthSizeClass.Compact -> Modifier.fillMaxWidth(0.85f)
+            WindowWidthSizeClass.Medium -> Modifier.widthIn(max = 520.dp)
+            WindowWidthSizeClass.Expanded -> Modifier.widthIn(max = 600.dp)
+            else -> Modifier.fillMaxWidth(0.85f)
+        }
     }
 
     if (showClearConfirmationDialog) {
@@ -397,12 +423,7 @@ private fun UserMessageBubble(
         horizontalArrangement = Arrangement.End,
     ) {
         Surface(
-            shape = RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = 18.dp,
-                bottomEnd = 4.dp,
-            ),
+            shape = UserBubbleShape,
             color = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = bubbleWidthModifier,
@@ -422,6 +443,8 @@ private fun AssistantMessageBubble(
     text: String,
     bubbleWidthModifier: Modifier = Modifier.fillMaxWidth(0.85f),
 ) {
+    val annotatedText = remember(text) { text.toBoldAnnotatedString() }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start,
@@ -435,19 +458,14 @@ private fun AssistantMessageBubble(
             tint = MaterialTheme.colorScheme.primary,
         )
         Surface(
-            shape = RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = 4.dp,
-                bottomEnd = 18.dp,
-            ),
+            shape = AssistantBubbleShape,
             color = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = bubbleWidthModifier,
             tonalElevation = 1.dp,
         ) {
             Text(
-                text = text.toBoldAnnotatedString(),
+                text = annotatedText,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             )
@@ -473,12 +491,7 @@ private fun AssistantLoadingBubble(
             tint = MaterialTheme.colorScheme.primary,
         )
         Surface(
-            shape = RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = 4.dp,
-                bottomEnd = 18.dp,
-            ),
+            shape = AssistantBubbleShape,
             color = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = bubbleWidthModifier,
@@ -534,7 +547,7 @@ private fun PromptBar(
                 maxLines = 4,
                 enabled = !isLoading,
                 isError = promptError != null,
-                shape = RoundedCornerShape(24.dp),
+                shape = PromptTextFieldShape,
                 supportingText = promptError?.let {
                     { Text(stringResource(R.string.field_cannot_be_empty)) }
                 },

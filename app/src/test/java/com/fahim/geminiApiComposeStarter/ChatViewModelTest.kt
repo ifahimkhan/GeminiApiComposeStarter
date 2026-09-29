@@ -358,17 +358,20 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isDarkTheme)
+        assertFalse(viewModel.isDarkTheme.value)
 
         viewModel.toggleDarkTheme()
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.isDarkTheme)
+        assertTrue(viewModel.isDarkTheme.value)
         assertTrue(fakeUserPreferencesRepository.savedDarkTheme)
 
         viewModel.toggleDarkTheme()
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isDarkTheme)
+        assertFalse(viewModel.isDarkTheme.value)
         assertFalse(fakeUserPreferencesRepository.savedDarkTheme)
     }
 
