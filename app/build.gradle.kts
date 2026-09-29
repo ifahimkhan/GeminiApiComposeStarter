@@ -43,6 +43,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            // Use debug signing for assignment submission & local QA testing so the minified
+            // APK can be installed via adb without requiring an external private production keystore.
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
