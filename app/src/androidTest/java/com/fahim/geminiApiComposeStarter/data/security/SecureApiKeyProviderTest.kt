@@ -35,9 +35,11 @@ class SecureApiKeyProviderTest {
     }
 
     @After
-    fun tearDown() = runBlocking {
-        cryptoManager.removeKey()
-        context.appDataStore.edit { it.clear() }
+    fun tearDown() {
+        runBlocking {
+            cryptoManager.removeKey()
+            context.appDataStore.edit { it.clear() }
+        }
     }
 
     @Test
