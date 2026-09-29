@@ -35,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,13 +50,16 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -114,6 +118,7 @@ fun ChatRoute(
                 viewModel.onVoiceError("Speech recognition isn't available on this device.")
             }
         },
+        onClearChat = viewModel::clearChat,
         onRetry = viewModel::retry,
         onDismissError = viewModel::clearErrorMessage,
         modifier = modifier,
@@ -128,12 +133,14 @@ fun ChatScreen(
     onPromptChange: (String) -> Unit = {},
     onSend: () -> Unit = {},
     onVoiceClick: () -> Unit = {},
+    onClearChat: () -> Unit = {},
     onRetry: () -> Unit = {},
     onDismissError: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showClearConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.errorMessage) {
         val error = uiState.errorMessage
@@ -164,6 +171,29 @@ fun ChatScreen(
         else -> Triple(800.dp, 32.dp, 540.dp)
     }
 
+    if (showClearConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmation = false },
+            title = { Text(text = "Clear Conversation?") },
+            text = { Text(text = "This will remove all messages from this device. This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearConfirmation = false
+                        onClearChat()
+                    },
+                ) {
+                    Text(text = "Clear", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmation = false }) {
+                    Text(text = "Cancel")
+                }
+            },
+        )
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -191,6 +221,17 @@ fun ChatScreen(
                             text = "Gemini AI",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         )
+                    }
+                },
+                actions = {
+                    if (uiState.messages.isNotEmpty()) {
+                        IconButton(onClick = { showClearConfirmation = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_delete),
+                                contentDescription = "Clear chat history",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
