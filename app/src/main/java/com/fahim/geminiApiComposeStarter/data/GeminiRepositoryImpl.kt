@@ -8,14 +8,33 @@ private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val apiKeyProvider: () -> String?,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    constructor(
+        apiKey: String,
+        modelName: String = DEFAULT_MODEL,
+    ) : this(apiKeyProvider = { apiKey }, modelName = modelName)
+
+    @Volatile
+    private var model: GenerativeModel? = null
+
+    private fun getModel(): GenerativeModel {
+        return model ?: synchronized(this) {
+            model ?: run {
+                val apiKey = apiKeyProvider()?.takeIf { it.isNotBlank() }
+                    ?: throw IllegalStateException("Gemini API key is not available or failed decryption")
+                GenerativeModel(modelName = modelName, apiKey = apiKey).also {
+                    model = it
+                }
+            }
+        }
+    }
 
     override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
+        val generativeModel = getModel()
+        val response = generativeModel.generateContent(prompt)
         val text = response.text?.takeIf { it.isNotBlank() }
         if (text != null) {
             Result.success(text)
