@@ -37,12 +37,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -58,6 +61,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.fahim.geminiApiComposeStarter.data.preferences.ThemeMode
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,6 +87,8 @@ fun ChatRoute(
     viewModel: ChatViewModel,
     modifier: Modifier = Modifier,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
+    currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -100,6 +108,8 @@ fun ChatRoute(
     ChatScreen(
         uiState = uiState,
         widthSizeClass = widthSizeClass,
+        currentThemeMode = currentThemeMode,
+        onThemeModeChange = onThemeModeChange,
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
         onVoiceClick = {
@@ -130,6 +140,8 @@ fun ChatRoute(
 fun ChatScreen(
     uiState: ChatUiState,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
+    currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onPromptChange: (String) -> Unit = {},
     onSend: () -> Unit = {},
     onVoiceClick: () -> Unit = {},
@@ -195,9 +207,7 @@ fun ChatScreen(
     }
 
     Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .imePadding(),
+        modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = {
@@ -224,11 +234,84 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    var showThemeMenu by remember { mutableStateOf(false) }
+
+                    Box {
+                        IconButton(
+                            onClick = { showThemeMenu = true },
+                            modifier = Modifier.semantics {
+                                contentDescription = "Theme selection, currently ${currentThemeMode.name}"
+                            },
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    when (currentThemeMode) {
+                                        ThemeMode.LIGHT -> R.drawable.ic_light_mode
+                                        ThemeMode.DARK -> R.drawable.ic_dark_mode
+                                        ThemeMode.SYSTEM -> R.drawable.ic_theme_mode
+                                    }
+                                ),
+                                contentDescription = "Change theme",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showThemeMenu,
+                            onDismissRequest = { showThemeMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("System default") },
+                                leadingIcon = {
+                                    RadioButton(
+                                        selected = currentThemeMode == ThemeMode.SYSTEM,
+                                        onClick = null,
+                                    )
+                                },
+                                onClick = {
+                                    showThemeMenu = false
+                                    onThemeModeChange(ThemeMode.SYSTEM)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Light") },
+                                leadingIcon = {
+                                    RadioButton(
+                                        selected = currentThemeMode == ThemeMode.LIGHT,
+                                        onClick = null,
+                                    )
+                                },
+                                onClick = {
+                                    showThemeMenu = false
+                                    onThemeModeChange(ThemeMode.LIGHT)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Dark") },
+                                leadingIcon = {
+                                    RadioButton(
+                                        selected = currentThemeMode == ThemeMode.DARK,
+                                        onClick = null,
+                                    )
+                                },
+                                onClick = {
+                                    showThemeMenu = false
+                                    onThemeModeChange(ThemeMode.DARK)
+                                },
+                            )
+                        }
+                    }
+
                     if (uiState.messages.isNotEmpty()) {
-                        IconButton(onClick = { showClearConfirmation = true }) {
+                        IconButton(
+                            onClick = { showClearConfirmation = true },
+                            modifier = Modifier.semantics {
+                                contentDescription = "Clear chat history"
+                            },
+                        ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_delete),
-                                contentDescription = "Clear chat history",
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -246,7 +329,8 @@ fun ChatScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .imePadding(),
             contentAlignment = Alignment.TopCenter,
         ) {
             val containerModifier = if (maxContainerWidth != Dp.Unspecified) {
@@ -398,7 +482,7 @@ private fun ChatMessageBubble(
         val textColor = if (isUser) {
             MaterialTheme.colorScheme.onPrimary
         } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+            MaterialTheme.colorScheme.onSurface
         }
 
         Box(
@@ -649,3 +733,30 @@ private fun ChatScreenExpandedPreview() {
         )
     }
 }
+
+@Preview(name = "Dark Mode Preview", widthDp = 360, heightDp = 640, showBackground = true)
+@Composable
+private fun ChatScreenDarkPreview() {
+    GeminiApiComposeStarterTheme(darkTheme = true) {
+        ChatScreen(
+            uiState = ChatUiState(
+                messages = listOf(
+                    ChatMessage(
+                        id = "1",
+                        text = "Can you explain quantum computing in simple terms?",
+                        participant = Participant.USER,
+                    ),
+                    ChatMessage(
+                        id = "2",
+                        text = "Quantum computing uses **qubits** instead of classical bits to process complex calculations exponentially faster.",
+                        participant = Participant.ASSISTANT,
+                    ),
+                ),
+                prompt = "Tell me more",
+            ),
+            currentThemeMode = ThemeMode.DARK,
+            widthSizeClass = WindowWidthSizeClass.Compact,
+        )
+    }
+}
+

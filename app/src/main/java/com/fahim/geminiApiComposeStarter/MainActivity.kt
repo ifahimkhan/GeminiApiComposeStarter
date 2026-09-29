@@ -10,6 +10,7 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
 import com.fahim.geminiApiComposeStarter.data.local.AppDatabase
 import com.fahim.geminiApiComposeStarter.data.local.ChatHistoryRepositoryImpl
@@ -21,6 +22,7 @@ import com.fahim.geminiApiComposeStarter.data.security.SecureApiKeyProvider
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -58,6 +60,12 @@ class MainActivity : ComponentActivity() {
                 ChatRoute(
                     viewModel = viewModel,
                     widthSizeClass = windowSizeClass.widthSizeClass,
+                    currentThemeMode = themeMode,
+                    onThemeModeChange = { newMode ->
+                        lifecycleScope.launch {
+                            userPreferencesRepository.setThemeMode(newMode)
+                        }
+                    },
                 )
             }
         }
