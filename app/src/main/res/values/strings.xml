@@ -4,4 +4,7 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speak_to_type">Speak to type</string>
+    <string name="speech_not_available">Speech recognition is not available on this device</string>
 </resources>
