@@ -1,0 +1,5 @@
+## Template for local.properties (DO NOT commit real API keys to version control)
+## Copy this file to local.properties in the project root directory and add your Google Gemini API Key:
+## https://aistudio.google.com/
+
+GEMINI_API_KEY=your_api_key_here
