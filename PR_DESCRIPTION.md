@@ -118,6 +118,14 @@ The following submission screenshots are located in `docs/screenshots/`:
 | **Dark Theme** | Material 3 dark color scheme | [`04-dark-mode.png`](docs/screenshots/04-dark-mode.png) |
 | **Voice Input Dialog** | System speech recognition intent dialog | [`05-voice-input.png`](docs/screenshots/05-voice-input.png) |
 | **Adaptive Layout** | Responsive landscape layout with constrained container | [`06-landscape.png`](docs/screenshots/06-landscape.png) |
+| **Thinking / Loading** | CircularProgressIndicator & assistant thinking indicator | [`07-loading-state.png`](docs/screenshots/07-loading-state.png) |
+| **Error Handling & Retry** | Network error Snackbar with interactive Retry action | [`08-error-state.png`](docs/screenshots/08-error-state.png) |
+| **Clear Conversation** | Confirmation dialog preventing accidental chat deletion | [`09-clear-chat.png`](docs/screenshots/09-clear-chat.png) |
+| **Room Persistence** | Conversation history restored after force-stop & relaunch | [`10-room-persistence.png`](docs/screenshots/10-room-persistence.png) |
+| **Theme Persistence** | Dark theme retained after application process death | [`11-theme-persistence.png`](docs/screenshots/11-theme-persistence.png) |
+| **Release Runtime (R8)** | Minified release APK executing Gemini response cleanly | [`13-release-runtime.png`](docs/screenshots/13-release-runtime.png) |
+| **Release Multi-Turn** | Multi-turn context memory retention in release APK | [`14-multiturn-release.png`](docs/screenshots/14-multiturn-release.png) |
+| **Voice Dictation Intent** | Clean capture of system speech recognition intent UI | [`15-voice-input.png`](docs/screenshots/15-voice-input.png) |
 
 ---
 

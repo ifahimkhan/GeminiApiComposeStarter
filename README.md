@@ -13,11 +13,25 @@
 
 ## Visual Demonstrations
 
-| Initial Screen | Gemini Response | Multi-Turn Context |
+### Core Conversation & Multi-Turn Context
+| Initial Welcome | Gemini Response | Multi-Turn Memory |
 | :---: | :---: | :---: |
 | <img src="docs/screenshots/01-chat-home.png" width="220" alt="Home Screen" /> | <img src="docs/screenshots/02-gemini-response.png" width="220" alt="Gemini Response" /> | <img src="docs/screenshots/03-multiturn-chat.png" width="220" alt="Multi-Turn Chat" /> |
-| **Dark Theme** | **Voice Input Intent** | **Adaptive Landscape** |
-| <img src="docs/screenshots/04-dark-mode.png" width="220" alt="Dark Mode" /> | <img src="docs/screenshots/05-voice-input.png" width="220" alt="Voice Input" /> | <img src="docs/screenshots/06-landscape.png" width="320" alt="Landscape Layout" /> |
+
+### UI States, Resilience & Confirmation
+| Thinking / Loading State | Offline Error & Retry | Clear Chat Dialog |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/07-loading-state.png" width="220" alt="Loading State" /> | <img src="docs/screenshots/08-error-state.png" width="220" alt="Error State" /> | <img src="docs/screenshots/09-clear-chat.png" width="220" alt="Clear Chat" /> |
+
+### Room & DataStore Persistence Across Process Death
+| Room History Restored | Dark Theme Persisted | Adaptive Landscape |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/10-room-persistence.png" width="220" alt="Room Persistence" /> | <img src="docs/screenshots/11-theme-persistence.png" width="220" alt="Theme Persistence" /> | <img src="docs/screenshots/06-landscape.png" width="320" alt="Landscape Layout" /> |
+
+### Minified Release Runtime (R8 Verification) & Voice Intent
+| Release APK Runtime | Release Multi-Turn Memory | Voice Input Dialog |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/13-release-runtime.png" width="220" alt="Release Runtime" /> | <img src="docs/screenshots/14-multiturn-release.png" width="220" alt="Release Multi-Turn" /> | <img src="docs/screenshots/15-voice-input.png" width="220" alt="Voice Input" /> |
 
 ---
 
@@ -107,7 +121,7 @@ GeminiApiComposeStarter/
 │           └── ui/                     # ViewModel state machine & markdown tests
 ├── docs/
 │   ├── TESTING.md                      # Detailed testing guide and runtime evidence
-│   └── screenshots/                    # Clean submission screenshots (01 to 06)
+│   └── screenshots/                    # Submission screenshots (01 to 15)
 ├── gradle/libs.versions.toml           # Version catalog (AGP 9.0, Kotlin 2.0.21, etc.)
 ├── local.properties.example            # Template for configuring local API key
 ├── PR_DESCRIPTION.md                   # Submission pull request description
