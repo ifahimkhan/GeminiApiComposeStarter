@@ -125,7 +125,6 @@ The following submission screenshots are located in `docs/screenshots/`:
 | **Theme Persistence** | Dark theme retained after application process death | [`11-theme-persistence.png`](docs/screenshots/11-theme-persistence.png) |
 | **Release Runtime (R8)** | Minified release APK executing Gemini response cleanly | [`13-release-runtime.png`](docs/screenshots/13-release-runtime.png) |
 | **Release Multi-Turn** | Multi-turn context memory retention in release APK | [`14-multiturn-release.png`](docs/screenshots/14-multiturn-release.png) |
-| **Voice Dictation Intent** | Clean capture of system speech recognition intent UI | [`15-voice-input.png`](docs/screenshots/15-voice-input.png) |
 
 ---
 

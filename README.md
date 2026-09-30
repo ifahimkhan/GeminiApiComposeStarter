@@ -31,7 +31,7 @@
 ### Minified Release Runtime (R8 Verification) & Voice Intent
 | Release APK Runtime | Release Multi-Turn Memory | Voice Input Dialog |
 | :---: | :---: | :---: |
-| <img src="docs/screenshots/13-release-runtime.png" width="220" alt="Release Runtime" /> | <img src="docs/screenshots/14-multiturn-release.png" width="220" alt="Release Multi-Turn" /> | <img src="docs/screenshots/15-voice-input.png" width="220" alt="Voice Input" /> |
+| <img src="docs/screenshots/13-release-runtime.png" width="220" alt="Release Runtime" /> | <img src="docs/screenshots/14-multiturn-release.png" width="220" alt="Release Multi-Turn" /> | <img src="docs/screenshots/05-voice-input.png" width="220" alt="Voice Input" /> |
 
 ---
 
