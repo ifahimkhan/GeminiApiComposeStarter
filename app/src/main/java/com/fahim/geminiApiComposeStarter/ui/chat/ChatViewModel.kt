@@ -4,63 +4,120 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
+import com.fahim.geminiApiComposeStarter.data.prefs.ThemeMode
+import com.fahim.geminiApiComposeStarter.data.prefs.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ChatViewModel(
     private val repository: GeminiRepository,
+    private val prefsRepo: UserPreferencesRepository,
     private val hasApiKey: Boolean,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
-    val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    fun onPromptChange(value: String) {
-        _uiState.update { it.copy(prompt = value, promptError = null) }
+    val uiState: StateFlow<ChatUiState> = combine(
+        _uiState,
+        repository.messages,
+        prefsRepo.preferences
+    ) { state, messages, prefs ->
+        state.copy(
+            messages = messages,
+            themeMode = prefs.themeMode,
+            selectedModel = prefs.selectedModel,
+            userName = prefs.preferredName
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ChatUiState()
+    )
+
+    fun onInputChanged(value: String) {
+        _uiState.update { it.copy(inputText = value) }
     }
 
-    fun onSend() {
-        val prompt = _uiState.value.prompt.trim()
-        if (prompt.isEmpty()) {
-            _uiState.update { it.copy(promptError = PromptError.EMPTY) }
-            return
-        }
-        if (!hasApiKey) {
-            _uiState.update { it.copy(errorMessage = MISSING_API_KEY_MESSAGE) }
-            return
-        }
-        if (_uiState.value.isLoading) return
+    fun onVoiceResult(spoken: String) {
+        _uiState.update { it.copy(inputText = spoken, isListening = false) }
+    }
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+    fun onListeningStarted() {
+        _uiState.update { it.copy(isListening = true) }
+    }
+
+    fun onListeningCancelled() {
+        _uiState.update { it.copy(isListening = false) }
+    }
+
+    fun dismissError() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun dismissModelNotice() {
+        _uiState.update { it.copy(modelNoticeDialogMessage = null) }
+    }
+
+    fun selectModel(modelName: String) {
         viewModelScope.launch {
-            repository.generateText(prompt).fold(
+            prefsRepo.setSelectedModel(modelName)
+            _uiState.update { 
+                it.copy(modelNoticeDialogMessage = "Note: If you are using the free API, models like gemini-1.5-pro may have strict rate limits.")
+            }
+        }
+    }
+
+    fun selectThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            prefsRepo.setThemeMode(mode)
+        }
+    }
+
+    fun clearChat() {
+        viewModelScope.launch {
+            repository.clearChat()
+        }
+    }
+
+    fun sendMessage() {
+        val prompt = _uiState.value.inputText.trim()
+        if (prompt.isEmpty()) return
+
+        if (!hasApiKey) {
+            _uiState.update { it.copy(errorMessage = "GEMINI_API_KEY is missing. Add it to local.properties and rebuild.") }
+            return
+        }
+
+        if (_uiState.value.isSending) return
+
+        _uiState.update { it.copy(inputText = "", isSending = true, errorMessage = null) }
+
+        viewModelScope.launch {
+            // First add user message
+            repository.addMessage(prompt, isFromUser = true)
+            
+            val modelName = uiState.value.selectedModel
+            
+            repository.generateText(prompt, modelName).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    repository.addMessage(text, isFromUser = false)
+                    _uiState.update { it.copy(isSending = false) }
                 },
                 onFailure = { error ->
+                    repository.addMessage(error.message ?: "Failed to get response", isFromUser = false, isError = true)
                     _uiState.update {
                         it.copy(
-                            isLoading = false,
+                            isSending = false,
                             errorMessage = error.message ?: "Something went wrong",
                         )
                     }
-                },
+                }
             )
         }
-    }
-
-    companion object {
-        const val MISSING_API_KEY_MESSAGE =
-            "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
-
-        fun factory(repository: GeminiRepository, hasApiKey: Boolean) =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ChatViewModel(repository, hasApiKey) as T
-            }
     }
 }
