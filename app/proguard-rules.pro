@@ -14,8 +14,19 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Room Database
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**
+
+# Google Generative AI SDK
+-keep class com.google.ai.client.generativeai.** { *; }
+-dontwarn com.google.ai.client.generativeai.**
+
+# Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+
+# DataStore Preferences
+-keepclassmembers class * extends androidx.datastore.preferences.core.Preferences { *; }

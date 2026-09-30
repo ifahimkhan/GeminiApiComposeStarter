@@ -1,7 +1,29 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini AI Assistant</string>
+    <string name="enter_your_prompt_here">Ask Gemini anything...</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="field_cannot_be_empty">Prompt cannot be empty</string>
+    <string name="voice_input">Voice Input</string>
+    <string name="clear_history">Clear History</string>
+    <string name="settings">Settings</string>
+    <string name="copy">Copy</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="confirm_clear_title">Clear Conversation?</string>
+    <string name="confirm_clear_message">This will permanently delete all messages in this conversation.</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="settings_title">Assistant Preferences</string>
+    <string name="user_name_label">Your Name</string>
+    <string name="model_label">Gemini Model</string>
+    <string name="tone_label">Assistant Tone</string>
+    <string name="custom_api_key_label">Custom API Key (Encrypted with Keystore)</string>
+    <string name="api_key_placeholder">Leave blank to use local.properties key</string>
+    <string name="welcome_title">Welcome to Gemini AI</string>
+    <string name="welcome_subtitle">Powered by Jetpack Compose &amp; Gemini Flash. Try asking a question or select a topic below:</string>
+    <string name="chip_1">Explain Kotlin Coroutines</string>
+    <string name="chip_2">Compose Best Practices</string>
+    <string name="chip_3">Summarize this article</string>
+    <string name="chip_4">Debug my Android code</string>
 </resources>
