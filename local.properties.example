@@ -1,0 +1,7 @@
+# Copy this file to local.properties (git-ignored) and fill in your own values.
+# Android Studio normally writes sdk.dir for you.
+sdk.dir=/path/to/Android/Sdk
+
+# Gemini API key from https://aistudio.google.com/app/apikey
+# Never commit the real value. CI reads it from the GEMINI_API_KEY environment variable instead.
+GEMINI_API_KEY=your_api_key_here
