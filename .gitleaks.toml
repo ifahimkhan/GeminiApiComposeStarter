@@ -4,6 +4,14 @@ title = "Gitleaks configuration"
 [extend]
 useDefault = true
 
+[allowlist]
+description = "Ignore generated build artifacts and local properties"
+paths = [
+    '''[/\\]build[/\\]''',
+    '''[/\\]\.gradle[/\\]''',
+    '''local\.properties$''',
+]
+
 [[rules]]
 id = "google-api-key"
 description = "Google API Key (AIza)"

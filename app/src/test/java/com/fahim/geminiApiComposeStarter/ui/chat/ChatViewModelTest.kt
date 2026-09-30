@@ -465,4 +465,76 @@ class ChatViewModelTest {
         assertEquals("4", repo.lastHistoryReceived[1].text)
         assertEquals(Participant.ASSISTANT, repo.lastHistoryReceived[1].participant)
     }
+
+    @Test
+    fun isRetryableError_withTypedGeminiExceptions_classifiesCorrectly() {
+        // Retryable: Network, Overloaded, QuotaExceeded
+        assertTrue(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.Network()))
+        assertTrue(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.Overloaded()))
+        assertTrue(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.QuotaExceeded()))
+
+        // Non-retryable: Authentication, PermissionDenied, ModelNotFound, BadRequest, ContentBlocked, Unknown
+        assertFalse(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.Authentication()))
+        assertFalse(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.PermissionDenied()))
+        assertFalse(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.ModelNotFound()))
+        assertFalse(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.BadRequest()))
+        assertFalse(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.ContentBlocked()))
+        assertFalse(ChatViewModel.isRetryableError(com.fahim.geminiApiComposeStarter.data.GeminiException.Unknown("Unclassified")))
+    }
+
+    @Test
+    fun clearChat_whileRequestInFlight_cancelsJobAndPreventsStaleMessages() = runTest(testDispatcher) {
+        val suspendingRepo = object : GeminiRepository {
+            override suspend fun generateText(prompt: String): Result<String> = generateText(prompt, emptyList())
+            override suspend fun generateText(prompt: String, history: List<ChatMessage>): Result<String> {
+                kotlinx.coroutines.delay(5000L)
+                return Result.success("Late assistant response")
+            }
+        }
+        val viewModel = ChatViewModel(suspendingRepo)
+
+        viewModel.onPromptChange("In-flight prompt")
+        viewModel.onSend()
+        testScheduler.advanceTimeBy(1000L)
+        assertTrue("ViewModel should be loading while request is in-flight", viewModel.uiState.value.isLoading)
+
+        // User clears conversation while request is still pending
+        viewModel.clearChat()
+        advanceUntilIdle()
+
+        val stateAfterCompletion = viewModel.uiState.value
+        assertEquals("Chat history must remain empty after in-flight request was cancelled", 0, stateAfterCompletion.messages.size)
+        assertFalse("Loading must be reset after clearChat", stateAfterCompletion.isLoading)
+        assertNull("No error should be recorded from cancelled request", stateAfterCompletion.chatError)
+    }
+
+    @Test
+    fun onSend_whileRequestInFlight_ignoresConcurrentSend() = runTest(testDispatcher) {
+        var calls = 0
+        val suspendingRepo = object : GeminiRepository {
+            override suspend fun generateText(prompt: String): Result<String> = generateText(prompt, emptyList())
+            override suspend fun generateText(prompt: String, history: List<ChatMessage>): Result<String> {
+                calls++
+                kotlinx.coroutines.delay(2000L)
+                return Result.success("Response $calls")
+            }
+        }
+        val viewModel = ChatViewModel(suspendingRepo)
+
+        viewModel.onPromptChange("First prompt")
+        viewModel.onSend()
+        testScheduler.advanceTimeBy(500L)
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        // Attempt second rapid send
+        viewModel.onPromptChange("Second prompt")
+        viewModel.onSend()
+
+        advanceUntilIdle()
+
+        assertEquals("Only the initial prompt should have been dispatched", 1, calls)
+        assertEquals(2, viewModel.uiState.value.messages.size) // 1 user + 1 assistant
+        assertEquals("First prompt", viewModel.uiState.value.messages[0].text)
+        assertEquals("Response 1", viewModel.uiState.value.messages[1].text)
+    }
 }

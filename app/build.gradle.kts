@@ -60,6 +60,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        // Return default values (0/null) for unmocked Android platform static calls (specifically android.util.Log)
+        // during JVM unit tests, preventing RuntimeException("Method in android.util.Log not mocked").
+        // Tests assert real domain types and StateFlow values directly and do not rely on vacuous defaults.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 ksp {

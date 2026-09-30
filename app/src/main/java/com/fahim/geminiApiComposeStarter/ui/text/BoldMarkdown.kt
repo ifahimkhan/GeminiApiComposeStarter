@@ -24,31 +24,52 @@ import androidx.compose.ui.unit.em
  */
 fun String.toMarkdownAnnotatedString(): AnnotatedString = buildAnnotatedString {
     val lines = this@toMarkdownAnnotatedString.lines()
+    var inFencedCodeBlock = false
+
     lines.forEachIndexed { index, rawLine ->
         val line = rawLine.trimEnd()
 
-        // Heading detection: # H1 / ## H2 / ### H3
-        val headingMatch = Regex("""^(#{1,3})\s+(.+)$""").matchEntire(line)
-        if (headingMatch != null) {
-            val level = headingMatch.groupValues[1].length
-            val headingText = headingMatch.groupValues[2]
-            val fontSize = when (level) {
-                1 -> 1.25.em
-                2 -> 1.1.em
-                else -> 1.0.em
+        // Fenced code block detection: ``` or ```lang
+        if (line.startsWith("```")) {
+            inFencedCodeBlock = !inFencedCodeBlock
+            // Optional: if opening or closing fence, we can either emit an empty line or skip fence syntax
+            if (index < lines.lastIndex && !inFencedCodeBlock) {
+                // finished code block
             }
-            withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = fontSize)) {
-                appendInlineMarkdown(headingText)
+            return@forEachIndexed
+        }
+
+        if (inFencedCodeBlock) {
+            // Inside code block: render raw monospace without markdown parsing
+            withStyle(SpanStyle(fontFamily = FontFamily.Monospace)) {
+                append(rawLine)
             }
         } else {
-            // Bullet list: lines starting with "- " or "* "
-            val bulletMatch = Regex("""^(\s*)[*\-]\s+(.+)$""").matchEntire(line)
-            if (bulletMatch != null) {
-                val content = bulletMatch.groupValues[2]
-                append("• ")
-                appendInlineMarkdown(content)
+            // Heading detection: # H1 / ## H2 / ### H3
+            val headingMatch = Regex("""^(#{1,3})\s+(.+)$""").matchEntire(line)
+            if (headingMatch != null) {
+                val level = headingMatch.groupValues[1].length
+                val headingText = headingMatch.groupValues[2]
+                val fontSize = when (level) {
+                    1 -> 1.25.em
+                    2 -> 1.1.em
+                    else -> 1.0.em
+                }
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = fontSize)) {
+                    appendInlineMarkdown(headingText)
+                }
             } else {
-                appendInlineMarkdown(line)
+                // Bullet list: lines starting with "- " or "* "
+                val bulletMatch = Regex("""^(\s*)[*\-]\s+(.+)$""").matchEntire(line)
+                if (bulletMatch != null) {
+                    val indent = bulletMatch.groupValues[1]
+                    val content = bulletMatch.groupValues[2]
+                    append(indent)
+                    append("• ")
+                    appendInlineMarkdown(content)
+                } else {
+                    appendInlineMarkdown(line)
+                }
             }
         }
 
@@ -59,12 +80,15 @@ fun String.toMarkdownAnnotatedString(): AnnotatedString = buildAnnotatedString {
 }
 
 /**
- * Appends inline markdown spans (**bold**, *italic*, `code`) to the current
- * [AnnotatedString.Builder] context.
+ * Appends inline markdown spans (***bold+italic***, **bold**, *italic*, `code`)
+ * to the current [AnnotatedString.Builder] context.
+ *
+ * Math asterisks like "2 * 3 * 4" are preserved as plain text by enforcing that
+ * italic markdown delimiters cannot be flanked by whitespace.
  */
 private fun AnnotatedString.Builder.appendInlineMarkdown(text: String) {
-    // Tokenise: find **bold**, *italic*, `code` spans in order of appearance.
-    val tokenPattern = Regex("""\*\*(.+?)\*\*|\*([^*]+?)\*|`([^`]+?)`""")
+    // Tokenise: ***bold+italic***, **bold**, *italic* (non-whitespace bounded), `code`
+    val tokenPattern = Regex("""\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(?!\s)([^*\n]+?)(?<!\s)\*|`([^`\n]+?)`""")
     var cursor = 0
     for (match in tokenPattern.findAll(text)) {
         // Append any plain text before this match
@@ -73,18 +97,24 @@ private fun AnnotatedString.Builder.appendInlineMarkdown(text: String) {
         }
         when {
             match.groupValues[1].isNotEmpty() -> {
-                // **bold**
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                // ***bold and italic***
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)) {
                     append(match.groupValues[1])
                 }
             }
             match.groupValues[2].isNotEmpty() -> {
-                // *italic*
-                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                // **bold**
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
                     append(match.groupValues[2])
                 }
             }
             match.groupValues[3].isNotEmpty() -> {
+                // *italic*
+                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                    append(match.groupValues[3])
+                }
+            }
+            match.groupValues[4].isNotEmpty() -> {
                 // `code`
                 withStyle(
                     SpanStyle(
@@ -92,7 +122,7 @@ private fun AnnotatedString.Builder.appendInlineMarkdown(text: String) {
                         fontWeight = FontWeight.Normal,
                     )
                 ) {
-                    append(match.groupValues[3])
+                    append(match.groupValues[4])
                 }
             }
         }

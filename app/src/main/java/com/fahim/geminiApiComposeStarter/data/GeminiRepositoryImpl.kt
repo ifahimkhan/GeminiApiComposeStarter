@@ -14,6 +14,12 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import com.google.ai.client.generativeai.type.InvalidAPIKeyException
+import com.google.ai.client.generativeai.type.PromptBlockedException
+import com.google.ai.client.generativeai.type.QuotaExceededException
+import com.google.ai.client.generativeai.type.ResponseStoppedException
+import com.google.ai.client.generativeai.type.SerializationException
+import com.google.ai.client.generativeai.type.UnsupportedUserLocationException
 
 private const val TAG = "GeminiRepository"
 
@@ -22,14 +28,8 @@ class GeminiRepositoryImpl(
     private val modelName: String = GeminiConfig.MODEL_NAME,
     private val fallbackModelName: String = GeminiConfig.FALLBACK_MODEL_NAME,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val contentGenerator: ContentGenerator = DefaultContentGenerator(),
 ) : GeminiRepository {
-
-    @Volatile
-    private var generativeModel: GenerativeModel? = null
-    @Volatile
-    private var fallbackGenerativeModel: GenerativeModel? = null
-    @Volatile
-    private var cachedApiKey: String? = null
 
     override suspend fun generateText(prompt: String): Result<String> =
         generateText(prompt, emptyList())
@@ -45,21 +45,19 @@ class GeminiRepositoryImpl(
             )
         }
 
-        val primaryModel = getOrCreateModel(apiKey)
         var lastException: Exception? = null
         val contentHistory = buildContentHistory(history)
 
         // Attempt 1-2 on primary model (gemini-3.8-flash)
         for (attempt in 1..2) {
             try {
-                val response = if (contentHistory.isEmpty()) {
-                    primaryModel.generateContent(prompt)
-                } else {
-                    val chat = primaryModel.startChat(contentHistory)
-                    chat.sendMessage(prompt)
-                }
-                val text = response.text?.takeIf { it.isNotBlank() }
-                if (text != null) {
+                val text = contentGenerator.generateContent(
+                    modelName = modelName,
+                    apiKey = apiKey,
+                    prompt = prompt,
+                    history = contentHistory,
+                )
+                if (text.isNotBlank()) {
                     return@withContext Result.success(text)
                 } else {
                     return@withContext Result.failure(IllegalStateException("Received empty response from Gemini."))
@@ -68,38 +66,33 @@ class GeminiRepositoryImpl(
                 throw e
             } catch (e: Exception) {
                 lastException = e
-                val msg = e.message.orEmpty()
-                val isTransientCapacityIssue = msg.contains("503", ignoreCase = true) ||
-                        msg.contains("UNAVAILABLE", ignoreCase = true) ||
-                        msg.contains("high demand", ignoreCase = true) ||
-                        msg.contains("MissingFieldException", ignoreCase = true)
-                if (isTransientCapacityIssue && attempt < 2) {
+                val classified = mapExceptionToUserFriendlyError(e)
+                // Only transient overloaded/capacity spikes (503) are retried automatically
+                if (classified is GeminiException.Overloaded && attempt < 2) {
                     kotlinx.coroutines.delay(1000L)
-                } else if (!isTransientCapacityIssue) {
+                } else if (classified !is GeminiException.Overloaded) {
+                    // Non-retryable errors (auth, quota, 404, blocked) abort retry loop immediately
                     break
                 }
             }
         }
 
-        // If primary model hit capacity spike (503), attempt fallback within Gemini 3 family
+        // If primary model hit capacity spike (503), quota exhaustion (429), or model unavailable (404), attempt fallback model
         if (lastException != null) {
-            val msg = lastException.message.orEmpty()
-            val isCapacityIssue = msg.contains("503", ignoreCase = true) ||
-                    msg.contains("UNAVAILABLE", ignoreCase = true) ||
-                    msg.contains("high demand", ignoreCase = true) ||
-                    msg.contains("MissingFieldException", ignoreCase = true)
-            if (isCapacityIssue && fallbackModelName.isNotBlank() && fallbackModelName != modelName) {
+            val classified = mapExceptionToUserFriendlyError(lastException)
+            val canFallback = (classified is GeminiException.Overloaded ||
+                    classified is GeminiException.QuotaExceeded ||
+                    classified is GeminiException.ModelNotFound)
+            if (canFallback && fallbackModelName.isNotBlank() && fallbackModelName != modelName) {
                 try {
-                    Log.w(TAG, "Primary model $modelName high demand; falling back to $fallbackModelName")
-                    val fallbackModel = getOrCreateFallbackModel(apiKey)
-                    val response = if (contentHistory.isEmpty()) {
-                        fallbackModel.generateContent(prompt)
-                    } else {
-                        val chat = fallbackModel.startChat(contentHistory)
-                        chat.sendMessage(prompt)
-                    }
-                    val text = response.text?.takeIf { it.isNotBlank() }
-                    if (text != null) {
+                    Log.w(TAG, "Primary model $modelName unavailable/throttled; falling back to $fallbackModelName")
+                    val text = contentGenerator.generateContent(
+                        modelName = fallbackModelName,
+                        apiKey = apiKey,
+                        prompt = prompt,
+                        history = contentHistory,
+                    )
+                    if (text.isNotBlank()) {
                         return@withContext Result.success(text)
                     }
                 } catch (e: CancellationException) {
@@ -113,7 +106,7 @@ class GeminiRepositoryImpl(
         val friendlyError = mapExceptionToUserFriendlyError(
             lastException ?: IllegalStateException("An unexpected error occurred while communicating with Gemini.")
         )
-        Log.e(TAG, "Gemini generation failed: ${friendlyError.message}")
+        Log.e(TAG, "Gemini generation failed: ${friendlyError.message}", lastException)
         Result.failure(friendlyError)
     }
 
@@ -148,74 +141,79 @@ class GeminiRepositoryImpl(
         return result
     }
 
-    private fun getOrCreateModel(apiKey: String): GenerativeModel {
-        val currentModel = generativeModel
-        if (currentModel != null && cachedApiKey == apiKey) {
-            return currentModel
-        }
-        return synchronized(this) {
-            val existing = generativeModel
-            if (existing != null && cachedApiKey == apiKey) {
-                existing
-            } else {
-                cachedApiKey = apiKey
-                GenerativeModel(modelName = modelName, apiKey = apiKey).also {
-                    generativeModel = it
-                }
-            }
-        }
-    }
-
-    private fun getOrCreateFallbackModel(apiKey: String): GenerativeModel {
-        val currentFallback = fallbackGenerativeModel
-        if (currentFallback != null && cachedApiKey == apiKey) {
-            return currentFallback
-        }
-        return synchronized(this) {
-            val existing = fallbackGenerativeModel
-            if (existing != null && cachedApiKey == apiKey) {
-                existing
-            } else {
-                GenerativeModel(modelName = fallbackModelName, apiKey = apiKey).also {
-                    fallbackGenerativeModel = it
-                }
-            }
-        }
-    }
-
     internal fun mapExceptionToUserFriendlyError(e: Exception): Exception {
-        val message = e.message.orEmpty()
+        if (e is GeminiException) return e
+
+        val causes = generateSequence<Throwable>(e) { it.cause }.toList()
+        val allMessages = causes.mapNotNull { it.message }.joinToString(" ")
+
+        val isNetwork = causes.any {
+            it is UnknownHostException || it is SocketTimeoutException || it is IOException ||
+            it.javaClass.name.contains("ConnectException", ignoreCase = true) ||
+            it.javaClass.name.contains("TimeoutException", ignoreCase = true)
+        } || allMessages.contains("Unable to resolve host", ignoreCase = true) ||
+             allMessages.contains("Failed to connect", ignoreCase = true) ||
+             allMessages.contains("network", ignoreCase = true) ||
+             allMessages.contains("No address associated with hostname", ignoreCase = true)
+
+        if (isNetwork) {
+            return GeminiException.Network("Network connection error. Please check your internet connection and try again.", e)
+        }
+
+        if (causes.any { it is InvalidAPIKeyException }) {
+            return GeminiException.Authentication("Invalid API key credentials. Please verify your GEMINI_API_KEY.", e)
+        }
+
+        if (causes.any { it is QuotaExceededException }) {
+            return GeminiException.QuotaExceeded("Rate limit or quota exceeded. Please wait a moment and try again.", e)
+        }
+
+        if (causes.any { it is UnsupportedUserLocationException }) {
+            return GeminiException.PermissionDenied("User location is not supported for Gemini API.", e)
+        }
+
+        if (causes.any { it is PromptBlockedException } || causes.any { it is ResponseStoppedException }) {
+            return GeminiException.ContentBlocked("Response was blocked due to safety or policy settings.", e)
+        }
+
         return when {
-            e is UnknownHostException || e is SocketTimeoutException || e is IOException -> {
-                IOException("Network connection error. Please check your internet connection and try again.", e)
+            allMessages.contains("API_KEY_INVALID", ignoreCase = true) ||
+            allMessages.contains("401", ignoreCase = true) ||
+            allMessages.contains("invalid api key", ignoreCase = true) -> {
+                GeminiException.Authentication("Invalid API key credentials. Please verify your GEMINI_API_KEY.", e)
             }
-            message.contains("API_KEY_INVALID", ignoreCase = true) ||
-            message.contains("401", ignoreCase = true) ||
-            message.contains("invalid api key", ignoreCase = true) -> {
-                IllegalArgumentException("Invalid API key credentials. Please verify your GEMINI_API_KEY.", e)
+            allMessages.contains("PERMISSION_DENIED", ignoreCase = true) ||
+            allMessages.contains("403", ignoreCase = true) -> {
+                GeminiException.PermissionDenied("Authentication or permission denied for Gemini API.", e)
             }
-            message.contains("PERMISSION_DENIED", ignoreCase = true) ||
-            message.contains("403", ignoreCase = true) -> {
-                SecurityException("Authentication or permission denied for Gemini API.", e)
+            allMessages.contains("RESOURCE_EXHAUSTED", ignoreCase = true) ||
+            allMessages.contains("429", ignoreCase = true) ||
+            allMessages.contains("quota", ignoreCase = true) -> {
+                GeminiException.QuotaExceeded("Rate limit or quota exceeded. Please wait a moment and try again.", e)
             }
-            message.contains("RESOURCE_EXHAUSTED", ignoreCase = true) ||
-            message.contains("429", ignoreCase = true) ||
-            message.contains("quota", ignoreCase = true) -> {
-                IllegalStateException("Rate limit or quota exceeded. Please wait a moment and try again.", e)
+            allMessages.contains("503", ignoreCase = true) ||
+            allMessages.contains("UNAVAILABLE", ignoreCase = true) ||
+            allMessages.contains("high demand", ignoreCase = true) ||
+            allMessages.contains("MissingFieldException", ignoreCase = true) ||
+            causes.any { it is SerializationException } -> {
+                GeminiException.Overloaded("The model is currently experiencing high demand. Please try again in a moment.", e)
             }
-            message.contains("503", ignoreCase = true) ||
-            message.contains("UNAVAILABLE", ignoreCase = true) ||
-            message.contains("high demand", ignoreCase = true) ||
-            message.contains("MissingFieldException", ignoreCase = true) -> {
-                IllegalStateException("The model is currently experiencing high demand. Please try again in a moment.", e)
+            allMessages.contains("NOT_FOUND", ignoreCase = true) ||
+            allMessages.contains("404", ignoreCase = true) ||
+            allMessages.contains("model not found", ignoreCase = true) -> {
+                GeminiException.ModelNotFound("The requested model ($modelName) is currently unavailable.", e)
             }
-            message.contains("NOT_FOUND", ignoreCase = true) ||
-            message.contains("404", ignoreCase = true) ||
-            message.contains("model not found", ignoreCase = true) -> {
-                IllegalStateException("The requested model ($modelName) is currently unavailable.", e)
+            allMessages.contains("SAFETY", ignoreCase = true) ||
+            allMessages.contains("blocked", ignoreCase = true) -> {
+                GeminiException.ContentBlocked("Response was blocked due to safety or policy settings.", e)
+            }
+            allMessages.contains("INVALID_ARGUMENT", ignoreCase = true) ||
+            allMessages.contains("400", ignoreCase = true) ||
+            allMessages.contains("bad request", ignoreCase = true) -> {
+                GeminiException.BadRequest("Invalid request parameters or format.", e)
             }
             else -> {
-                Exception(e.message?.takeIf { it.isNotBlank() } ?: "An unexpected error occurred while communicating with Gemini.", e)
+                GeminiException.Unknown(e.message?.takeIf { it.isNotBlank() } ?: "An unexpected error occurred while communicating with Gemini.", e)
             }
         }
     }

@@ -26,10 +26,12 @@ data class EncryptedPayload(
 /**
  * Manages AES-256-GCM encryption and decryption backed by AndroidKeyStore.
  */
-class CryptoManager {
+open class CryptoManager {
 
-    private val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply {
-        load(null)
+    private val keyStore: KeyStore by lazy {
+        KeyStore.getInstance(ANDROID_KEYSTORE).apply {
+            load(null)
+        }
     }
 
     private fun getOrCreateSecretKey(): SecretKey {
@@ -37,7 +39,7 @@ class CryptoManager {
         return existingKey?.secretKey ?: generateSecretKey()
     }
 
-    fun generateSecretKey(): SecretKey {
+    open fun generateSecretKey(): SecretKey {
         keyStore.deleteEntry(KEY_ALIAS)
         val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
         val parameterSpec = KeyGenParameterSpec.Builder(
@@ -52,7 +54,7 @@ class CryptoManager {
         return keyGenerator.generateKey()
     }
 
-    fun removeKey() {
+    open fun removeKey() {
         try {
             if (keyStore.containsAlias(KEY_ALIAS)) {
                 keyStore.deleteEntry(KEY_ALIAS)
@@ -65,7 +67,7 @@ class CryptoManager {
     /**
      * Encrypts plaintext bytes using a fresh IV with AES-256-GCM.
      */
-    fun encrypt(plaintext: String): EncryptedPayload {
+    open fun encrypt(plaintext: String): EncryptedPayload {
         val secretKey = getOrCreateSecretKey()
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
@@ -87,7 +89,7 @@ class CryptoManager {
         java.security.GeneralSecurityException::class,
         IllegalArgumentException::class,
     )
-    fun decrypt(ciphertextBase64: String, ivBase64: String): String {
+    open fun decrypt(ciphertextBase64: String, ivBase64: String): String {
         val secretKey = (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.secretKey
             ?: throw java.security.InvalidKeyException("Keystore key not found for alias $KEY_ALIAS")
 

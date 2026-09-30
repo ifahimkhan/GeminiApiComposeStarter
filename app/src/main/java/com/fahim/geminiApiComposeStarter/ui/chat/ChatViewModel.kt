@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.fahim.geminiApiComposeStarter.data.GeminiRepository
 import com.fahim.geminiApiComposeStarter.data.local.ChatHistoryRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +22,8 @@ class ChatViewModel(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private var lastPrompt: String? = null
+    @Volatile
+    private var activeRequestJob: Job? = null
 
     init {
         historyRepository?.let { historyRepo ->
@@ -67,7 +71,7 @@ class ChatViewModel(
             _uiState.update { it.copy(promptError = PromptError.EMPTY) }
             return
         }
-        if (_uiState.value.isLoading) return
+        if (_uiState.value.isLoading || activeRequestJob?.isActive == true) return
 
         lastPrompt = prompt
         val userMessage = ChatMessage(text = prompt, participant = Participant.USER)
@@ -86,7 +90,7 @@ class ChatViewModel(
             )
         }
 
-        viewModelScope.launch {
+        activeRequestJob = viewModelScope.launch {
             historyRepository?.insertMessage(userMessage)
             executePrompt(prompt, historySnapshot)
         }
@@ -94,7 +98,7 @@ class ChatViewModel(
 
     fun retry() {
         val promptToRetry = lastPrompt ?: return
-        if (_uiState.value.isLoading) return
+        if (_uiState.value.isLoading || activeRequestJob?.isActive == true) return
         // Only retry if the current error is retryable
         if (_uiState.value.chatError is ChatError.NonRetryable) return
 
@@ -106,7 +110,7 @@ class ChatViewModel(
             )
         }
         val historySnapshot = _uiState.value.messages.dropLastWhile { it.participant == Participant.USER }
-        viewModelScope.launch {
+        activeRequestJob = viewModelScope.launch {
             executePrompt(promptToRetry, historySnapshot)
         }
     }
@@ -116,60 +120,84 @@ class ChatViewModel(
     }
 
     fun clearChat() {
+        // Cancel any in-flight generation request immediately so it cannot repopulate Room or UI state
+        activeRequestJob?.cancel()
+        activeRequestJob = null
+        lastPrompt = null
+        _uiState.update { state ->
+            state.copy(
+                messages = emptyList(),
+                isLoading = false,
+                chatError = null,
+                promptError = null,
+            )
+        }
         viewModelScope.launch {
             historyRepository?.clearHistory()
-            _uiState.update { state ->
-                state.copy(
-                    messages = emptyList(),
-                    chatError = null,
-                )
-            }
         }
     }
 
     private suspend fun executePrompt(prompt: String, history: List<ChatMessage> = emptyList()) {
-        repository.generateText(prompt, history).fold(
-            onSuccess = { text ->
-                val assistantMessage = ChatMessage(
-                    text = text,
-                    participant = Participant.ASSISTANT,
-                )
-                historyRepository?.insertMessage(assistantMessage)
-                // Add assistant message optimistically; Room Flow convergence handles deduplication.
-                _uiState.update { state ->
-                    state.copy(
-                        messages = state.messages + assistantMessage,
-                        isLoading = false,
-                        chatError = null,
+        try {
+            repository.generateText(prompt, history).fold(
+                onSuccess = { text ->
+                    val assistantMessage = ChatMessage(
+                        text = text,
+                        participant = Participant.ASSISTANT,
                     )
-                }
-            },
-            onFailure = { error ->
-                // Network/quota/server failures are retryable. Auth/key failures are not.
-                val message = error.message ?: "Something went wrong"
-                val chatError = if (isRetryableError(error)) {
-                    ChatError.Retryable(message)
-                } else {
-                    ChatError.NonRetryable(message)
-                }
-                _uiState.update { state ->
-                    state.copy(
-                        isLoading = false,
-                        chatError = chatError,
-                    )
-                }
-            },
-        )
+                    historyRepository?.insertMessage(assistantMessage)
+                    // Add assistant message optimistically; Room Flow convergence handles deduplication.
+                    _uiState.update { state ->
+                        state.copy(
+                            messages = state.messages + assistantMessage,
+                            isLoading = false,
+                            chatError = null,
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    // Network/quota/server failures are retryable. Auth/key failures are not.
+                    val message = error.message ?: "Something went wrong"
+                    val chatError = if (isRetryableError(error)) {
+                        ChatError.Retryable(message)
+                    } else {
+                        ChatError.NonRetryable(message)
+                    }
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            chatError = chatError,
+                        )
+                    }
+                },
+            )
+        } catch (e: CancellationException) {
+            // Request was cancelled (e.g. by clearChat()). Do not update UI or persist anything.
+            throw e
+        }
     }
 
     companion object {
         /**
-         * Network errors, quota exhaustion, and transient server errors are retryable.
-         * Auth failures (invalid key, permission denied) are non-retryable since retrying
-         * with the same key will always fail.
+         * Error classification (Phase 5b):
+         * - Retryable: Network errors, 503/Overloaded, and QuotaExceeded (transient issues).
+         * - Non-retryable: Authentication (invalid key / 401 / 403), ModelNotFound (404),
+         *   BadRequest (400), ContentBlocked (safety filters), and Unknown unclassified errors.
+         *
+         * Documented Decision for Unknown errors: Non-retryable by default to prevent uncontrolled
+         * retry loops that waste API quota or endlessly repeat malformed requests.
          */
         internal fun isRetryableError(error: Throwable): Boolean {
             return when (error) {
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.Network,
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.Overloaded,
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.QuotaExceeded -> true
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.Authentication,
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.PermissionDenied,
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.ModelNotFound,
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.BadRequest,
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.ContentBlocked,
+                is com.fahim.geminiApiComposeStarter.data.GeminiException.Unknown -> false
                 is java.io.IOException -> true
                 is IllegalStateException -> {
                     val msg = error.message.orEmpty()

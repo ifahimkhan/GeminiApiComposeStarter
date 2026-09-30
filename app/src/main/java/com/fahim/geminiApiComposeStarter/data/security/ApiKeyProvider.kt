@@ -50,11 +50,24 @@ interface ApiKeyProvider {
  * single process lifetime. Call [clearCache] to force a fresh read (e.g. in tests).
  */
 class SecureApiKeyProvider(
-    private val context: Context,
-    private val cryptoManager: CryptoManager = CryptoManager(),
-    private val dataStore: DataStore<Preferences> = context.appDataStore,
+    private val cryptoManager: CryptoManager,
+    private val dataStore: DataStore<Preferences>,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val buildKeyProvider: () -> String = { BuildConfig.GEMINI_API_KEY },
 ) : ApiKeyProvider {
+
+    constructor(
+        context: Context,
+        cryptoManager: CryptoManager = CryptoManager(),
+        dataStore: DataStore<Preferences> = context.appDataStore,
+        ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+        buildKeyProvider: () -> String = { BuildConfig.GEMINI_API_KEY },
+    ) : this(
+        cryptoManager = cryptoManager,
+        dataStore = dataStore,
+        ioDispatcher = ioDispatcher,
+        buildKeyProvider = buildKeyProvider,
+    )
 
     @Volatile
     private var cachedKey: String? = null
@@ -87,16 +100,17 @@ class SecureApiKeyProvider(
         val iv = prefs[KEY_IV]
         val storedFingerprint = prefs[KEY_BUILD_FINGERPRINT]
 
-        val buildKey = BuildConfig.GEMINI_API_KEY.trim()
+        val buildKey = buildKeyProvider().trim()
         val buildFingerprint = if (buildKey.isNotBlank()) sha256HexOf(buildKey) else null
 
-        // §2.1 — Key rotation: if fingerprint differs, the BuildConfig key has changed.
-        // Discard the old ciphertext and reseed from the new BuildConfig key.
-        val fingerprintChanged = buildFingerprint != null &&
-                storedFingerprint != null &&
-                buildFingerprint != storedFingerprint
-        if (fingerprintChanged) {
-            Log.i(TAG, "BuildConfig key fingerprint changed — reseeding encrypted key at rest.")
+        // §2.1 — Key rotation: if fingerprint differs or key was removed (blank),
+        // discard the old ciphertext and reseed/clear from the new BuildConfig key.
+        val shouldReseed = (buildKey.isBlank() && !ciphertext.isNullOrBlank()) ||
+                (buildFingerprint != null &&
+                        storedFingerprint != null &&
+                        buildFingerprint != storedFingerprint)
+        if (shouldReseed) {
+            Log.i(TAG, "BuildConfig key changed or removed — reseeding encrypted key at rest.")
             return reseedFromBuildConfig(buildKey)
         }
 
@@ -104,6 +118,16 @@ class SecureApiKeyProvider(
             try {
                 val decrypted = cryptoManager.decrypt(ciphertext, iv)
                 if (decrypted.isNotBlank()) {
+                    // Semantics Decision - Legacy Migration:
+                    // If ciphertext and IV exist in DataStore but no fingerprint was recorded
+                    // (i.e. an existing installation upgrading from a prior version without fingerprints),
+                    // we trust the decrypted key and backfill its fingerprint into DataStore.
+                    // This preserves valid encrypted state while enabling future rotation detection.
+                    if (storedFingerprint == null) {
+                        dataStore.edit { p ->
+                            p[KEY_BUILD_FINGERPRINT] = sha256HexOf(decrypted)
+                        }
+                    }
                     return decrypted
                 }
             } catch (e: Exception) {
@@ -127,7 +151,7 @@ class SecureApiKeyProvider(
         return reseedFromBuildConfig(buildKey)
     }
 
-    private suspend fun reseedFromBuildConfig(buildKey: String = BuildConfig.GEMINI_API_KEY.trim()): String? {
+    private suspend fun reseedFromBuildConfig(buildKey: String = buildKeyProvider().trim()): String? {
         if (buildKey.isBlank()) {
             dataStore.edit { prefs ->
                 prefs.remove(KEY_CIPHERTEXT)
@@ -157,6 +181,17 @@ class SecureApiKeyProvider(
         /**
          * Returns the lower-case hex SHA-256 digest of [input].
          * Exposed as a static companion function for JVM unit tests (no Android context required).
+         *
+         * Security Justification (Bare SHA-256 vs HMAC/Salted):
+         * The fingerprint stored in DataStore is solely a one-way collision-resistant token
+         * used to detect build-key rotation without decrypting ciphertext at rest.
+         * The threat model considers candidate key pre-computation / dictionary attacks moot:
+         * 1) Legitimate Gemini API keys have ~190+ bits of entropy (random 39-character strings),
+         *    making dictionary or rainbow table inversion computationally infeasible.
+         * 2) In this mobile architecture, the plaintext key is compiled into the APK dex via
+         *    BuildConfig (see Known Limitations in README). An attacker capable of reading the
+         *    app's private DataStore can inspect the APK dex directly, so a salted HMAC
+         *    provides no additional security boundary.
          */
         fun sha256HexOf(input: String): String {
             val digest = MessageDigest.getInstance("SHA-256")

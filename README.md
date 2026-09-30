@@ -14,7 +14,7 @@
 
 `GeminiApiComposeStarter` is a production-grade, conversational Android application built with **Jetpack Compose**, **Material 3**, and Google's **Gemini Generative AI Android SDK**.
 
-Originally a single-turn prompt/response starter, the application has been re-architected into a multi-turn conversational AI client supporting voice dictation, persistent message history, user preference storage, dark/light theme switching with dynamic color support, adaptive tablet/landscape layouts, hardware-backed AES-256-GCM credential encryption at rest, and R8 release minification.
+Originally a single-turn prompt/response starter, the application has been re-architected into a multi-turn conversational AI client supporting voice dictation, persistent message history, user preference storage, dark/light theme switching with dynamic color support, adaptive tablet/landscape layouts, Android KeyStore-backed AES-256-GCM credential encryption at rest, and R8 release minification.
 
 ---
 
@@ -22,12 +22,11 @@ Originally a single-turn prompt/response starter, the application has been re-ar
 
 - **Multi-Turn Conversational Chat:** Full chat interface featuring Material 3 message bubbles, participant role distinction (User vs. Assistant), markdown formatting support (bold headers/spans), and unique, stable message identifiers.
 - **Voice-to-Text Input:** Built-in microphone trigger using Android's system `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` to transcribe spoken speech directly into the input bar without auto-sending.
-- **Hardware-Backed Credential Security:** Android KeyStore-backed AES-256-GCM encryption with fresh initialization vectors (IV) for encrypting the Gemini API key at rest in Preferences DataStore.
+- **Credential Security:** Android KeyStore-backed AES-256-GCM encryption with fresh initialization vectors (IV) for encrypting the Gemini API key at rest in Preferences DataStore (`gemini_secure_prefs.preferences_pb`).
 - **Offline Persistence (Room):** Local SQLite database powered by Room to store message history chronologically with deterministic tie-breaking, survivor of configuration changes and process termination.
 - **User Preferences (DataStore):** Dedicated Preferences DataStore for managing application theme mode (`SYSTEM`, `LIGHT`, `DARK`) isolated from cryptographic security keys.
 - **Adaptive Responsive Layouts:** Optimized for compact phones, medium foldables/tablets, and expanded large screens using `WindowWidthSizeClass`.
-- **R8 Release Hardening:** Full release minification (`isMinifyEnabled = true`) with targeted keep rules for Room and DataStore enums.
-- **Automated Test Suite:** 38 unit tests covering repository error mapping, Room entity conversions, DataStore isolation, and ViewModel conversational logic, accompanied by instrumented test suites.
+- **Automated Test Suite:** 93 automated tests (73 JVM unit tests + 20 connected instrumented tests) with 100% pass rate covering repository seams, retry mechanics, sealed error classification, Room persistence, DataStore, markdown formatting, key rotation, and Compose UI interactions.
 
 ---
 
@@ -70,8 +69,9 @@ The app adheres to modern Android Architecture Components and Unidirectional Dat
 ## 4. Setup & Local Configuration
 
 ### Prerequisites
-- Android Studio Otter 3.0 / Meerkat or later (AGP 9 requires Studio Otter+)
-- JDK 17 or later (required by AGP 9.0 and Gradle 9.1+)
+- Android Studio Otter 3+ or later (per Android docs for AGP 9)
+- JDK 17 (required by AGP 9.0 and Gradle 9.1+)
+- Gradle 9.1+ (managed via Gradle wrapper `gradle-9.3.1`)
 - Android SDK Platform 36
 
 ### Step 1: Clone the Repository
@@ -124,9 +124,9 @@ val geminiApiKey: String = run {
 ## 5. Security & Encryption Architecture
 
 ### Encryption-at-Rest Flow
-1. **Key Generation:** On first launch, `CryptoManager` generates an AES-256 key inside the Android KeyStore (alias `gemini_api_key_alias`). The master key material never leaves the KeyStore.
+1. **Key Generation:** On first launch, `CryptoManager` generates an AES-256 key inside the `AndroidKeyStore` (alias `gemini_api_key_alias`). All cryptographic operations (AES-GCM encryption/decryption) take place via the KeyStore provider without exposing raw master key material.
 2. **Encryption:** `CryptoManager.encrypt()` uses `AES/GCM/NoPadding` with a fresh 12-byte random IV for every encryption call, producing a ciphertext and an authentication tag (128-bit).
-3. **Storage:** `SecureApiKeyProvider` saves the base64-encoded ciphertext, IV, and a SHA-256 fingerprint of the BuildConfig key into Preferences DataStore (`gemini_secure_prefs`). Plaintext is never stored in SharedPreferences, SQLite, or unencrypted DataStore files.
+3. **Storage:** `SecureApiKeyProvider` saves the base64-encoded ciphertext, IV, and a SHA-256 fingerprint of the BuildConfig key into Preferences DataStore (`gemini_secure_prefs.preferences_pb`). Plaintext is never stored in SharedPreferences, SQLite, or unencrypted DataStore files.
 4. **Decryption:** The key is decrypted into memory strictly on demand within an IO coroutine dispatcher (`Dispatchers.IO`), then cached in memory for the process lifetime.
 5. **Key rotation (§2.1):** `SecureApiKeyProvider` stores a SHA-256 fingerprint of the BuildConfig key. On each app launch, if the fingerprint of the current BuildConfig key differs from the stored fingerprint, the old ciphertext is discarded and the new key is encrypted and reseeded automatically — so changing `local.properties` and rebuilding always takes effect on the next launch.
 6. **Recovery:** If ciphertext or IV is corrupted, `SecureApiKeyProvider` catches `AEADBadTagException` / `GeneralSecurityException` safely and re-seeds from BuildConfig.
@@ -184,12 +184,24 @@ Using `WindowWidthSizeClass`, the chat screen adapts across device form factors:
 ---
 
 ## 10. Build, Verification & Testing
+ 
+### Retry & Failover Mechanics
+- **Transient Overloaded / Capacity (503):** Automatically retried with a fixed delay of 1.0s for up to 2 attempts.
+- **Model Fallback:** If the primary model (`gemini-3.8-flash`) remains overloaded after 2 attempts, or encounters model rate-limit quota exhaustion (429) or model unavailability (404), the repository automatically falls back to secondary model (`gemini-3-flash-preview`).
+- **Non-Retryable Errors:** Authentication/API key invalidation, bad request parameters (400), content blocked policies, and disabled voice services fail immediately with user-friendly error banners without repeating doomed network calls.
 
 ### Running Unit Tests
 ```bash
 .\gradlew.bat testDebugUnitTest --rerun
 ```
-*Current test suite: **44 passing unit tests** across GeminiRepository, ChatViewModel (including sealed error types and key rotation), Room entities, and DataStore.*
+*Current test suite: **73 passing unit tests** (0 failures, 0 errors, 0 skipped) across `GeminiRepositoryTest` (21), `ChatViewModelTest` (27), `BoldMarkdownTest` (6), `ApiKeyProviderUnitTest` (7), `UserPreferencesRepositoryTest` (7), `ChatHistoryRepositoryTest` (3), and `ChatMessageEntityTest` (2).*
+
+### Running Instrumented Device Tests
+```bash
+.\gradlew.bat connectedDebugAndroidTest
+```
+*Current test suite: **20 passing instrumented tests** (0 failures, 0 errors, 0 skipped) executed on active emulator across `ChatScreenTest` (9), `CryptoManagerTest` (5), `SecureApiKeyProviderTest` (3), `ChatDaoTest` (2), and `ExampleInstrumentedTest` (1).*
+*Total verified automated test suite: **93 tests** (73 JVM unit + 20 connected instrumented).*
 
 ### Building Debug APK
 ```bash
@@ -221,12 +233,25 @@ Release builds enforce `isMinifyEnabled = true`. The targeted keep rules in `app
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
-# Room persistence: preserve Entity fields and DAO interface definitions for SQLite queries
+# Room persistence: preserve RoomDatabase implementations, Entity fields, and DAO definitions
+-keep class * extends androidx.room.RoomDatabase {
+    <init>();
+}
+-keep class **_Impl extends androidx.room.RoomDatabase {
+    <init>();
+}
 -keep class com.fahim.geminiApiComposeStarter.data.local.ChatMessageEntity { *; }
 -keep interface com.fahim.geminiApiComposeStarter.data.local.ChatDao { *; }
+-keep class * implements com.fahim.geminiApiComposeStarter.data.local.ChatDao {
+    <init>(...);
+}
 
 # User preferences: preserve ThemeMode enum entries and valueOf method for DataStore string persistence
 -keep enum com.fahim.geminiApiComposeStarter.data.preferences.ThemeMode { *; }
+
+# Chat UI models used in StateFlow and Room mappings
+-keep class com.fahim.geminiApiComposeStarter.ui.chat.ChatMessage { *; }
+-keep enum com.fahim.geminiApiComposeStarter.ui.chat.Participant { *; }
 ```
 
 ---
@@ -248,7 +273,20 @@ The following manual verification tests are documented for on-device testing:
 
 ---
 
-## 13. License & Academic Integrity
+## 13. Known Limitations
+
+1. **Client-Side API Key in APK (`BuildConfig`)**:
+   The Gemini API key is supplied via `local.properties` and compiled into `BuildConfig.GEMINI_API_KEY`. While stored encrypted-at-rest in DataStore via KeyStore AES-256-GCM, any attacker with physical access to the APK file can decompile bytecode (e.g. via Jadx or apktool) to recover the initial build-time key literal. Production deployments should proxy requests through an authenticated backend server or use Firebase AI Logic with App Check.
+2. **StrongBox Hardware Security Not Enforced**:
+   `CryptoManager` uses the standard `AndroidKeyStore` provider. StrongBox Keymaster (`setIsStrongBoxBacked(true)`) is not requested, allowing compatibility across all standard devices and emulators that lack dedicated tamper-resistant Secure Element hardware.
+3. **Single Global Conversation History**:
+   The Room database maintains a single sequential timeline of messages. Multiple distinct conversation sessions, thread branching, and cloud synchronization are not implemented in this version.
+4. **Virtual Emulator Audio Constraints**:
+   While the speech recognition intent (`RecognizerIntent.ACTION_RECOGNIZE_SPEECH`) and error handling are fully verified, live acoustic voice-to-text dictation requires an active speech engine and physical microphone input configured on the host or physical device.
+
+---
+
+## 14. License & Academic Integrity
 
 This project is submitted as part of coursework for NMIMS MPSTME Mobile Application Development (Lab Assignment 1).  
 Student Name: **Ritunjay Deo** | Roll Number: **N023**.  

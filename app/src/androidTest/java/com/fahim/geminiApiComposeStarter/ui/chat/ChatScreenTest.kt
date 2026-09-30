@@ -151,4 +151,24 @@ class ChatScreenTest {
 
         composeTestRule.onNodeWithContentDescription("Change theme").assertIsDisplayed()
     }
+
+    @Test
+    fun voiceError_displaysSnackbarWithNoRetryAction() {
+        var retryCalled = false
+        val errorMessage = "Speech recognition isn't available on this device."
+        composeTestRule.setContent {
+            GeminiApiComposeStarterTheme {
+                ChatScreen(
+                    uiState = ChatUiState(
+                        chatError = ChatError.NonRetryable(errorMessage),
+                    ),
+                    onRetry = { retryCalled = true },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(errorMessage).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Retry").assertDoesNotExist()
+        org.junit.Assert.assertFalse(retryCalled)
+    }
 }

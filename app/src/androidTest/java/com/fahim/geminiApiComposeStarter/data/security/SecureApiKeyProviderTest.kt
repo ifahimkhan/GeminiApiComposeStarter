@@ -54,6 +54,35 @@ class SecureApiKeyProviderTest {
 
         val decryptedKey = provider.getApiKey()
         assertEquals(dummyKey, decryptedKey)
+
+        // Verify legacy migration backfilled the fingerprint into DataStore
+        val storedPrefs = context.appDataStore.data.first()
+        assertEquals(
+            "Legacy migration must backfill SHA-256 fingerprint",
+            SecureApiKeyProvider.sha256HexOf(dummyKey),
+            storedPrefs[KEY_BUILD_FINGERPRINT],
+        )
+    }
+
+    @Test
+    fun getApiKey_whenFingerprintMatches_returnsDecryptedWithoutReseed() = runBlocking {
+        val dummyKey = "test_gemini_matching_fingerprint_key"
+        val payload = cryptoManager.encrypt(dummyKey)
+        val expectedFingerprint = SecureApiKeyProvider.sha256HexOf(dummyKey)
+
+        context.appDataStore.edit { prefs ->
+            prefs[KEY_CIPHERTEXT] = payload.ciphertextBase64
+            prefs[KEY_IV] = payload.ivBase64
+            prefs[KEY_BUILD_FINGERPRINT] = expectedFingerprint
+        }
+
+        val customProvider = SecureApiKeyProvider(
+            cryptoManager = cryptoManager,
+            dataStore = context.appDataStore,
+            buildKeyProvider = { dummyKey },
+        )
+        val decryptedKey = customProvider.getApiKey()
+        assertEquals(dummyKey, decryptedKey)
     }
 
     @Test
