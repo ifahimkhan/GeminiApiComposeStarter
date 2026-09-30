@@ -1,8 +1,10 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 // Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
@@ -10,7 +12,26 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+val rawGeminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+val isPlaceholderKey = rawGeminiApiKey.isEmpty() ||
+    rawGeminiApiKey.startsWith("YOUR_") ||
+    rawGeminiApiKey.startsWith("<") ||
+    rawGeminiApiKey.contains("TODO")
+val geminiApiKey = if (isPlaceholderKey) "" else rawGeminiApiKey
+
+// Avoid generating a plaintext GEMINI_API_KEY constant in BuildConfig.
+// Emit an obfuscated bootstrap payload if a local key is configured,
+// so that SecureApiKeyManager can initialize on-device Keystore encryption.
+val hasApiKey = geminiApiKey.isNotEmpty()
+val bootstrapPayload: String = if (hasApiKey) {
+    val mask: Byte = 0x5A
+    geminiApiKey.toByteArray(Charsets.UTF_8)
+        .map { (it.toInt() xor mask.toInt()).toByte() }
+        .toByteArray()
+        .let { Base64.getEncoder().encodeToString(it) }
+} else {
+    ""
+}
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -27,10 +48,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        buildConfigField("boolean", "HAS_API_KEY", "$hasApiKey")
         buildConfigField(
             "String",
-            "GEMINI_API_KEY",
-            "\"" + geminiApiKey.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+            "SECURE_KEY_BOOTSTRAP_PAYLOAD",
+            "\"" + bootstrapPayload + "\""
         )
     }
 
@@ -51,6 +73,11 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -64,6 +91,9 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.google.generativeai)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)

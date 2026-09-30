@@ -1,0 +1,4 @@
+## GeminiApiComposeStarter Local Configuration
+## Copy this file to local.properties and add your Gemini API key.
+## Do NOT commit local.properties to version control.
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE

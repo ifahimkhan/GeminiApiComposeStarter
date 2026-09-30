@@ -5,17 +5,31 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
+import com.fahim.geminiApiComposeStarter.data.RoomChatHistoryRepository
+import com.fahim.geminiApiComposeStarter.data.local.AppDatabase
+import com.fahim.geminiApiComposeStarter.security.SecureApiKeyManager
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
 class MainActivity : ComponentActivity() {
 
+    private val apiKeyManager by lazy { SecureApiKeyManager.getInstance(applicationContext) }
+
+    private val database by lazy { AppDatabase.getDatabase(applicationContext) }
+    private val chatHistoryRepository by lazy { RoomChatHistoryRepository(database.chatMessageDao()) }
+
     private val viewModel: ChatViewModel by viewModels {
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = BuildConfig.GEMINI_API_KEY),
-            hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
+            repository = GeminiRepositoryImpl(apiKeyManager = apiKeyManager),
+            chatHistoryRepository = chatHistoryRepository,
+            hasApiKey = apiKeyManager.hasValidApiKey(),
         )
     }
 
@@ -23,8 +37,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            GeminiApiComposeStarterTheme {
-                ChatRoute(viewModel = viewModel)
+            val systemInDarkTheme = isSystemInDarkTheme()
+            var userDarkThemeOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
+            val isDarkTheme = userDarkThemeOverride ?: systemInDarkTheme
+
+            GeminiApiComposeStarterTheme(darkTheme = isDarkTheme) {
+                ChatRoute(
+                    viewModel = viewModel,
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = {
+                        userDarkThemeOverride = !isDarkTheme
+                    },
+                )
             }
         }
     }

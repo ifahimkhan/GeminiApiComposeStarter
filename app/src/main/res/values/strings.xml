@@ -4,4 +4,10 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speech_not_available">Speech recognition is not available on this device.</string>
+    <string name="voice_input_failed">Voice input failed.</string>
+    <string name="clear_conversation">Clear conversation</string>
+    <string name="switch_to_dark_mode">Switch to dark mode</string>
+    <string name="switch_to_light_mode">Switch to light mode</string>
 </resources>
