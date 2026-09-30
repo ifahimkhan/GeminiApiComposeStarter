@@ -21,6 +21,20 @@ data class ChatMessage(
 )
 
 /**
+ * Classifies errors shown in the UI.
+ *
+ * - [Retryable]: the last prompt can be resent (network timeout, 503, quota). Shows a Retry action.
+ * - [NonRetryable]: retrying cannot help (missing speech services, invalid key, device error).
+ *   Shown as a simple dismissible snackbar with no action.
+ */
+sealed class ChatError {
+    abstract val message: String
+
+    data class Retryable(override val message: String) : ChatError()
+    data class NonRetryable(override val message: String) : ChatError()
+}
+
+/**
  * Immutable UI state for the conversational chat flow.
  */
 @Immutable
@@ -29,8 +43,7 @@ data class ChatUiState(
     val prompt: String = "",
     val isLoading: Boolean = false,
     val promptError: PromptError? = null,
-    val errorMessage: String? = null,
-    val response: String = "",
+    val chatError: ChatError? = null,
 )
 
 enum class PromptError { EMPTY }

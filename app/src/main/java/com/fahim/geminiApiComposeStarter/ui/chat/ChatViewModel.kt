@@ -54,10 +54,11 @@ class ChatViewModel(
     }
 
     /**
-     * Updates the error message when speech recognition is unavailable or fails.
+     * Reports a non-retryable voice/device error. Shown as a dismissible snackbar with
+     * no Retry action — retrying cannot help when speech services are unavailable.
      */
     fun onVoiceError(message: String = "Speech recognition isn't available on this device.") {
-        _uiState.update { it.copy(errorMessage = message) }
+        _uiState.update { it.copy(chatError = ChatError.NonRetryable(message)) }
     }
 
     fun onSend() {
@@ -79,7 +80,7 @@ class ChatViewModel(
             state.copy(
                 prompt = "",
                 isLoading = true,
-                errorMessage = null,
+                chatError = null,
                 promptError = null,
                 messages = state.messages + userMessage,
             )
@@ -94,11 +95,13 @@ class ChatViewModel(
     fun retry() {
         val promptToRetry = lastPrompt ?: return
         if (_uiState.value.isLoading) return
+        // Only retry if the current error is retryable
+        if (_uiState.value.chatError is ChatError.NonRetryable) return
 
         _uiState.update { state ->
             state.copy(
                 isLoading = true,
-                errorMessage = null,
+                chatError = null,
                 promptError = null,
             )
         }
@@ -108,8 +111,8 @@ class ChatViewModel(
         }
     }
 
-    fun clearErrorMessage() {
-        _uiState.update { it.copy(errorMessage = null) }
+    fun clearError() {
+        _uiState.update { it.copy(chatError = null) }
     }
 
     fun clearChat() {
@@ -118,7 +121,7 @@ class ChatViewModel(
             _uiState.update { state ->
                 state.copy(
                     messages = emptyList(),
-                    errorMessage = null,
+                    chatError = null,
                 )
             }
         }
@@ -137,16 +140,22 @@ class ChatViewModel(
                     state.copy(
                         messages = state.messages + assistantMessage,
                         isLoading = false,
-                        response = text,
-                        errorMessage = null,
+                        chatError = null,
                     )
                 }
             },
             onFailure = { error ->
+                // Network/quota/server failures are retryable. Auth/key failures are not.
+                val message = error.message ?: "Something went wrong"
+                val chatError = if (isRetryableError(error)) {
+                    ChatError.Retryable(message)
+                } else {
+                    ChatError.NonRetryable(message)
+                }
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
-                        errorMessage = error.message ?: "Something went wrong",
+                        chatError = chatError,
                     )
                 }
             },
@@ -154,8 +163,25 @@ class ChatViewModel(
     }
 
     companion object {
-        const val MISSING_API_KEY_MESSAGE =
-            "GEMINI_API_KEY is missing. Add it to local.properties and rebuild."
+        /**
+         * Network errors, quota exhaustion, and transient server errors are retryable.
+         * Auth failures (invalid key, permission denied) are non-retryable since retrying
+         * with the same key will always fail.
+         */
+        internal fun isRetryableError(error: Throwable): Boolean {
+            return when (error) {
+                is java.io.IOException -> true
+                is IllegalStateException -> {
+                    val msg = error.message.orEmpty()
+                    msg.contains("high demand", ignoreCase = true) ||
+                    msg.contains("quota", ignoreCase = true) ||
+                    msg.contains("Rate limit", ignoreCase = true)
+                }
+                is IllegalArgumentException -> false // invalid API key
+                is SecurityException -> false        // permission denied
+                else -> false
+            }
+        }
 
         fun factory(
             repository: GeminiRepository,

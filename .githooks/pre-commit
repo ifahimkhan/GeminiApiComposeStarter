@@ -1,5 +1,10 @@
 #!/bin/sh
-# Pre-commit hook to prevent secret leaks
+# Pre-commit hook to prevent secret leaks.
+#
+# IMPORTANT: This hook is only active when Git is configured to use the .githooks directory.
+# New contributors must run once per clone:
+#   git config core.hooksPath .githooks
+# See README § "Setup & Local Configuration" for details.
 
 # 1. Block local.properties
 if git diff --cached --name-only | grep -E '(^|/)local\.properties$' > /dev/null 2>&1; then

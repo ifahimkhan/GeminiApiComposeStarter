@@ -110,7 +110,7 @@ fun ChatRoute(
     val onSend = remember(viewModel) { { viewModel.onSend() } }
     val onClearChat = remember(viewModel) { { viewModel.clearChat() } }
     val onRetry = remember(viewModel) { { viewModel.retry() } }
-    val onDismissError = remember(viewModel) { { viewModel.clearErrorMessage() } }
+    val onDismissError = remember(viewModel) { { viewModel.clearError() } }
     val onVoiceClick = remember(speechRecognizerLauncher, viewModel) {
         {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -145,6 +145,7 @@ fun ChatRoute(
     )
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -164,19 +165,18 @@ fun ChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirmation by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.errorMessage) {
-        val error = uiState.errorMessage
-        if (error != null) {
-            val result = snackbarHostState.showSnackbar(
-                message = error,
-                actionLabel = "Retry",
-                duration = SnackbarDuration.Long,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                onRetry()
-            }
-            onDismissError()
+    LaunchedEffect(uiState.chatError) {
+        val error = uiState.chatError ?: return@LaunchedEffect
+        val isRetryable = error is ChatError.Retryable
+        val result = snackbarHostState.showSnackbar(
+            message = error.message,
+            actionLabel = if (isRetryable) "Retry" else null,
+            duration = SnackbarDuration.Long,
+        )
+        if (isRetryable && result == SnackbarResult.ActionPerformed) {
+            onRetry()
         }
+        onDismissError()
     }
 
     val messageCount = uiState.messages.size
@@ -620,7 +620,6 @@ private fun ChatInputBar(
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                     ),
                     maxLines = 4,
-                    enabled = !isLoading,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,
                         imeAction = ImeAction.Send,

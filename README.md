@@ -70,8 +70,8 @@ The app adheres to modern Android Architecture Components and Unidirectional Dat
 ## 4. Setup & Local Configuration
 
 ### Prerequisites
-- Android Studio Ladybug / Meerkat or later
-- JDK 11 or later
+- Android Studio Otter 3.0 / Meerkat or later (AGP 9 requires Studio Otter+)
+- JDK 17 or later (required by AGP 9.0 and Gradle 9.1+)
 - Android SDK Platform 36
 
 ### Step 1: Clone the Repository
@@ -91,7 +91,14 @@ GEMINI_API_KEY=YOUR_API_KEY_HERE
 
 > **Note:** `local.properties` is strictly ignored by Git (`.gitignore`) and will never be committed to source control.
 
-### Step 3: CI/CD Environment Variable Fallback
+### Step 3a: Configure the Pre-Commit Secret Scanner
+The repository includes a pre-commit hook in `.githooks/` that blocks accidental key commits.
+Enable it with a one-time command per clone:
+```bash
+git config core.hooksPath .githooks
+```
+
+### Step 3b: CI/CD Environment Variable Fallback
 For headless builds or CI/CD pipelines (e.g. GitHub Actions), the build system automatically falls back to an environment variable if `local.properties` is missing or blank:
 
 ```bash
@@ -117,19 +124,20 @@ val geminiApiKey: String = run {
 ## 5. Security & Encryption Architecture
 
 ### Encryption-at-Rest Flow
-1. **Key Generation:** On first launch, `CryptoManager` generates an AES-256 key inside the hardware-backed `AndroidKeyStore`. The master key material never leaves hardware boundaries.
+1. **Key Generation:** On first launch, `CryptoManager` generates an AES-256 key inside the Android KeyStore (alias `gemini_api_key_alias`). The master key material never leaves the KeyStore.
 2. **Encryption:** `CryptoManager.encrypt()` uses `AES/GCM/NoPadding` with a fresh 12-byte random IV for every encryption call, producing a ciphertext and an authentication tag (128-bit).
-3. **Storage:** `SecureApiKeyProvider` saves the base64-encoded ciphertext and IV into Preferences DataStore (`gemini_secure_prefs`). Plaintext is never stored in SharedPreferences, SQLite, or unencrypted DataStore files.
-4. **Decryption:** The key is decrypted into memory strictly on demand within an IO coroutine dispatcher (`Dispatchers.IO`).
-5. **Recovery:** If ciphertext or IV is corrupted, `SecureApiKeyProvider` catches `AEADBadTagException` / `GeneralSecurityException` safely and re-seeds from BuildConfig.
+3. **Storage:** `SecureApiKeyProvider` saves the base64-encoded ciphertext, IV, and a SHA-256 fingerprint of the BuildConfig key into Preferences DataStore (`gemini_secure_prefs`). Plaintext is never stored in SharedPreferences, SQLite, or unencrypted DataStore files.
+4. **Decryption:** The key is decrypted into memory strictly on demand within an IO coroutine dispatcher (`Dispatchers.IO`), then cached in memory for the process lifetime.
+5. **Key rotation (§2.1):** `SecureApiKeyProvider` stores a SHA-256 fingerprint of the BuildConfig key. On each app launch, if the fingerprint of the current BuildConfig key differs from the stored fingerprint, the old ciphertext is discarded and the new key is encrypted and reseeded automatically — so changing `local.properties` and rebuilding always takes effect on the next launch.
+6. **Recovery:** If ciphertext or IV is corrupted, `SecureApiKeyProvider` catches `AEADBadTagException` / `GeneralSecurityException` safely and re-seeds from BuildConfig.
 
 ### Client-Side Security Limitations & Considerations
 > [!WARNING]
 > **Client-Side Encryption Notice:**
-> - Client-side encryption prevents casual extraction of stored credentials from device storage (e.g., via non-rooted backups or physical file extraction).
-> - However, **any secret embedded in a client application binary or BuildConfig is inherently vulnerable to reverse-engineering by a determined attacker with root access or dynamic memory instrumentation (e.g., Frida).**
+> - The API key is baked into the APK as a `BuildConfig` string constant. R8 renames classes but does **not** encrypt string literals, so tools like `jadx` can recover the BuildConfig value from an APK. The DataStore ciphertext is seeded from that plaintext value, so the encryption defends against file-system access (e.g., non-rooted backups or ADB pull), not against APK decompilation by an attacker with a copy of the APK.
+> - The KeyStore key is generated without `StrongBox` (`setIsStrongBoxBacked(true)`), so hardware-backed isolation is not guaranteed on all devices.
 > - Code minification (R8) raises the barrier to reverse-engineering but does not provide absolute security.
-> - **Production Recommendation:** For production mobile applications, client apps should never communicate directly with AI model provider APIs using raw API keys. Instead, traffic should route through an authenticated backend proxy (e.g., Firebase App Check + Cloud Functions / Cloud Run) where credentials remain securely stored in server-side secret managers.
+> - **Production Recommendation:** For production apps, credentials should never be embedded in the client binary. Use Firebase AI Logic + App Check (Google's recommended path) or an authenticated backend proxy where keys are stored in server-side secret managers.
 
 ---
 
@@ -149,7 +157,7 @@ val geminiApiKey: String = run {
 - **Theme Modes:**
   - `ThemeMode.SYSTEM` (Default): Respects the system-wide dark/light theme setting.
   - `ThemeMode.LIGHT`: Forces Material 3 light color scheme.
-  - `ThemeMode.DARK`: Forces Material 3 dark color scheme with high contrast.
+  - `ThemeMode.DARK`: Forces Material 3 dark color scheme.
 - **Dynamic Color:** Enabled on Android 12+ (API 31+) devices via `dynamicDarkColorScheme` and `dynamicLightColorScheme`.
 
 ---
@@ -181,7 +189,7 @@ Using `WindowWidthSizeClass`, the chat screen adapts across device form factors:
 ```bash
 .\gradlew.bat testDebugUnitTest --rerun
 ```
-*Current test suite: **38 passing unit tests** across GeminiRepository, ChatViewModel, Room entities, and DataStore.*
+*Current test suite: **44 passing unit tests** across GeminiRepository, ChatViewModel (including sealed error types and key rotation), Room entities, and DataStore.*
 
 ### Building Debug APK
 ```bash
@@ -199,7 +207,7 @@ Using `WindowWidthSizeClass`, the chat screen adapts across device form factors:
 ```bash
 .\gradlew.bat assembleRelease
 ```
-*Output: `app/build/outputs/apk/release/app-release-unsigned.apk` (Size: ~2.07 MB)*  
+*Output: `app/build/outputs/apk/release/app-release.apk` (debug-signed; Size: ~2.1 MB)*  
 *Mapping files: `app/build/outputs/mapping/release/mapping.txt`*
 
 ---
@@ -236,7 +244,7 @@ The following manual verification tests are documented for on-device testing:
 | 5 | **DataStore Theme** | Select Dark theme, restart app. | Dark theme remains active upon app launch. |
 | 6 | **Offline Graceful Failure** | Turn on Airplane Mode, send message. | Snackbar displays "Network connection error", offers Retry button. |
 | 7 | **Responsive UI** | Rotate device to landscape or run on tablet. | Content centers ergonomically within adaptive width bounds. |
-| 8 | **Release APK Launch** | Install `app-release-unsigned.apk` via adb. | App boots without R8 reflection crashes. |
+| 8 | **Release APK Launch** | Install `app-release.apk` via `adb install app/build/outputs/apk/release/app-release.apk`. | App boots without R8 reflection crashes. |
 
 ---
 

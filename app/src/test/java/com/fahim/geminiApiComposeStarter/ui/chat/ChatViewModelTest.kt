@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -62,10 +63,9 @@ class ChatViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals("", state.prompt)
-        assertEquals("", state.response)
         assertFalse(state.isLoading)
         assertNull(state.promptError)
-        assertNull(state.errorMessage)
+        assertNull(state.chatError)
     }
 
     @Test
@@ -91,7 +91,7 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun onSend_success_updatesResponseAndClearsPrompt() = runTest(testDispatcher) {
+    fun onSend_success_updatesMessagesAndClearsPrompt() = runTest(testDispatcher) {
         val repo = FakeGeminiRepository(Result.success("Generated text"))
         val viewModel = ChatViewModel(repo)
 
@@ -104,8 +104,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isLoading)
-        assertEquals("Generated text", viewModel.uiState.value.response)
-        assertNull(viewModel.uiState.value.errorMessage)
+        assertNull(viewModel.uiState.value.chatError)
         assertEquals(1, repo.callCount)
         assertEquals("Tell me a joke", repo.lastPromptReceived)
 
@@ -121,22 +120,39 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun onSend_failure_updatesErrorMessage() = runTest(testDispatcher) {
-        val repo = FakeGeminiRepository(Result.failure(RuntimeException("Network failure")))
+    fun onSend_networkFailure_setsRetryableError() = runTest(testDispatcher) {
+        val networkError = java.io.IOException("Network failure")
+        val repo = FakeGeminiRepository(Result.failure(networkError))
         val viewModel = ChatViewModel(repo)
 
         viewModel.onPromptChange("Hello")
         viewModel.onSend()
-
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isLoading)
-        assertEquals("Network failure", viewModel.uiState.value.errorMessage)
+        val error = viewModel.uiState.value.chatError
+        assertTrue("Network error should be Retryable", error is ChatError.Retryable)
+        assertTrue(error!!.message.contains("Network failure"))
+    }
+
+    @Test
+    fun onSend_authFailure_setsNonRetryableError() = runTest(testDispatcher) {
+        val authError = IllegalArgumentException("Invalid API key credentials. Please verify your GEMINI_API_KEY.")
+        val repo = FakeGeminiRepository(Result.failure(authError))
+        val viewModel = ChatViewModel(repo)
+
+        viewModel.onPromptChange("Hello")
+        viewModel.onSend()
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.chatError
+        assertTrue("Auth error should be NonRetryable", error is ChatError.NonRetryable)
     }
 
     @Test
     fun retry_reSendsLastPrompt() = runTest(testDispatcher) {
-        val repo = FakeGeminiRepository(Result.failure(RuntimeException("First error")))
+        val networkError = java.io.IOException("First error")
+        val repo = FakeGeminiRepository(Result.failure(networkError))
         val viewModel = ChatViewModel(repo)
 
         viewModel.onPromptChange("First question")
@@ -144,7 +160,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, repo.callCount)
-        assertEquals("First error", viewModel.uiState.value.errorMessage)
+        assertTrue(viewModel.uiState.value.chatError is ChatError.Retryable)
 
         // Now repository will succeed on retry
         repo.resultToReturn = Result.success("Success on retry")
@@ -153,8 +169,33 @@ class ChatViewModelTest {
 
         assertEquals(2, repo.callCount)
         assertEquals("First question", repo.lastPromptReceived)
-        assertEquals("Success on retry", viewModel.uiState.value.response)
-        assertNull(viewModel.uiState.value.errorMessage)
+        assertNull(viewModel.uiState.value.chatError)
+    }
+
+    // §2.3 — Voice errors must be NonRetryable and must not offer a Retry path
+    @Test
+    fun onVoiceError_setsNonRetryableError_retryIgnoresIt() = runTest(testDispatcher) {
+        val repo = FakeGeminiRepository(Result.success("answer"))
+        val viewModel = ChatViewModel(repo)
+
+        // Send one successful message first so lastPrompt is set
+        viewModel.onPromptChange("Test question")
+        viewModel.onSend()
+        advanceUntilIdle()
+        assertEquals(1, repo.callCount)
+
+        // Simulate a voice error
+        viewModel.onVoiceError("Speech recognition isn't available on this device.")
+
+        val error = viewModel.uiState.value.chatError
+        assertTrue("Voice error must be NonRetryable", error is ChatError.NonRetryable)
+        assertEquals("Speech recognition isn't available on this device.", error!!.message)
+
+        // Calling retry() with a NonRetryable error must NOT trigger another API call
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals("retry() must not re-send when error is NonRetryable", 1, repo.callCount)
     }
 
     @Test
@@ -184,16 +225,36 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun onVoiceError_setsErrorMessage() {
+    fun clearError_resetsErrorToNull() {
         val repo = FakeGeminiRepository()
         val viewModel = ChatViewModel(repo)
 
-        viewModel.onVoiceError("Speech recognition isn't available on this device.")
+        viewModel.onVoiceError("Temporary error")
+        assertNotNull(viewModel.uiState.value.chatError)
 
-        assertEquals(
-            "Speech recognition isn't available on this device.",
-            viewModel.uiState.value.errorMessage
-        )
+        viewModel.clearError()
+        assertNull(viewModel.uiState.value.chatError)
+    }
+
+    // §2.1 — isRetryableError classification
+    @Test
+    fun isRetryableError_ioException_isTrue() {
+        assertTrue(ChatViewModel.isRetryableError(java.io.IOException("timeout")))
+    }
+
+    @Test
+    fun isRetryableError_quotaIllegalState_isTrue() {
+        assertTrue(ChatViewModel.isRetryableError(IllegalStateException("Rate limit or quota exceeded.")))
+    }
+
+    @Test
+    fun isRetryableError_illegalArgument_isFalse() {
+        assertFalse(ChatViewModel.isRetryableError(IllegalArgumentException("Invalid API key")))
+    }
+
+    @Test
+    fun isRetryableError_securityException_isFalse() {
+        assertFalse(ChatViewModel.isRetryableError(SecurityException("Permission denied")))
     }
 
     private class FakeChatHistoryRepository(
@@ -252,7 +313,7 @@ class ChatViewModelTest {
     @Test
     fun onSend_failedRequest_doesNotPersistFakeGeminiResponse() = runTest(testDispatcher) {
         val historyRepo = FakeChatHistoryRepository()
-        val geminiRepo = FakeGeminiRepository(Result.failure(RuntimeException("Network error")))
+        val geminiRepo = FakeGeminiRepository(Result.failure(java.io.IOException("Network error")))
         val viewModel = ChatViewModel(geminiRepo, historyRepo)
         advanceUntilIdle()
 
@@ -264,7 +325,7 @@ class ChatViewModelTest {
         assertEquals(1, messages.size)
         assertEquals("Failed query", messages[0].text)
         assertEquals(Participant.USER, messages[0].participant)
-        assertEquals("Network error", viewModel.uiState.value.errorMessage)
+        assertNotNull(viewModel.uiState.value.chatError)
     }
 
     @Test
@@ -289,7 +350,7 @@ class ChatViewModelTest {
     @Test
     fun retry_withPersistence_persistsAssistantResponseCorrectly() = runTest(testDispatcher) {
         val historyRepo = FakeChatHistoryRepository()
-        val geminiRepo = FakeGeminiRepository(Result.failure(RuntimeException("First failure")))
+        val geminiRepo = FakeGeminiRepository(Result.failure(java.io.IOException("First failure")))
         val viewModel = ChatViewModel(geminiRepo, historyRepo)
         advanceUntilIdle()
 
@@ -298,6 +359,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, viewModel.uiState.value.messages.size)
+        assertTrue(viewModel.uiState.value.chatError is ChatError.Retryable)
 
         // On retry, Gemini succeeds
         geminiRepo.resultToReturn = Result.success("Success on second attempt")
@@ -307,18 +369,6 @@ class ChatViewModelTest {
         assertEquals(2, viewModel.uiState.value.messages.size)
         assertEquals("Question to retry", viewModel.uiState.value.messages[0].text)
         assertEquals("Success on second attempt", viewModel.uiState.value.messages[1].text)
-    }
-
-    @Test
-    fun clearErrorMessage_resetsErrorMessageToNull() {
-        val repo = FakeGeminiRepository()
-        val viewModel = ChatViewModel(repo)
-
-        viewModel.onVoiceError("Temporary error")
-        assertEquals("Temporary error", viewModel.uiState.value.errorMessage)
-
-        viewModel.clearErrorMessage()
-        assertNull(viewModel.uiState.value.errorMessage)
     }
 
     @Test
@@ -395,13 +445,13 @@ class ChatViewModelTest {
         viewModel.onSend()
         advanceUntilIdle()
 
-        // Turn 2 fails
-        repo.resultToReturn = Result.failure(RuntimeException("Network error"))
+        // Turn 2 fails with retryable error
+        repo.resultToReturn = Result.failure(java.io.IOException("Network error"))
         viewModel.onPromptChange("Multiply that by 10")
         viewModel.onSend()
         advanceUntilIdle()
 
-        assertTrue(viewModel.uiState.value.errorMessage != null)
+        assertTrue(viewModel.uiState.value.chatError is ChatError.Retryable)
 
         // Retry turn 2
         repo.resultToReturn = Result.success("40")
@@ -416,5 +466,3 @@ class ChatViewModelTest {
         assertEquals(Participant.ASSISTANT, repo.lastHistoryReceived[1].participant)
     }
 }
-
-
