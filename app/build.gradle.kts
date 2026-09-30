@@ -8,9 +8,16 @@ plugins {
 // Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+
+val geminiApiKey: String =
+    localProperties.getProperty("GEMINI_API_KEY")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?: System.getenv("GEMINI_API_KEY")?.trim().orEmpty()
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -36,7 +43,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -54,6 +61,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.material3.adaptive)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -64,6 +72,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.google.generativeai)
+    implementation(libs.androidx.compose.material3.window.size.class)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
