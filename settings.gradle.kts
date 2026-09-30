@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "GeminiApiComposeStarter"
+rootProject.name = "N011_aryan_bohra_assignment1"
 include(":app")
  
