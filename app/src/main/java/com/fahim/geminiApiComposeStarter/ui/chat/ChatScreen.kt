@@ -1,5 +1,6 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
@@ -20,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,15 +31,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
-import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
@@ -58,45 +60,109 @@ fun ChatScreen(
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
 
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(state.messages.size, state.isLoading) {
+        if (state.messages.isNotEmpty()) {
+            val targetIndex = state.messages.size - 1
+            listState.animateScrollToItem(targetIndex)
+        }
+    }
+
     Scaffold(
-        modifier = Modifier.fillMaxSize().imePadding(),
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                ResponseArea(
-                    text = state.response.ifEmpty { stringResource(R.string.response_placeholder) },
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
-                PromptBar(
-                    prompt = state.prompt,
-                    promptError = state.promptError,
-                    enabled = !state.isLoading,
-                    onPromptChange = onPromptChange,
-                    onSend = onSend,
-                )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (state.messages.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.response_placeholder),
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 16.sp,
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(
+                            items = state.messages,
+                            key = { it.id },
+                        ) { message ->
+                            MessageBubble(message = message)
+                        }
+                        if (state.isLoading) {
+                            item(key = "loading") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Start,
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            if (state.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
+
+            PromptBar(
+                prompt = state.prompt,
+                promptError = state.promptError,
+                enabled = !state.isLoading,
+                onPromptChange = onPromptChange,
+                onSend = onSend,
+            )
         }
     }
 }
 
 @Composable
-private fun ResponseArea(text: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.verticalScroll(rememberScrollState())) {
-        Icon(
-            painter = painterResource(R.drawable.ic_assistant),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = text.toBoldAnnotatedString(),
-            fontSize = 18.sp,
-            modifier = Modifier.padding(8.dp),
-        )
+private fun MessageBubble(message: ChatMessage) {
+    val bubbleColor = if (message.isUser) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val textColor = if (message.isUser) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start,
+    ) {
+        Surface(
+            color = bubbleColor,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth(0.85f),
+        ) {
+            val annotated: AnnotatedString = if (message.isUser) {
+                AnnotatedString(message.text)
+            } else {
+                message.text.toBoldAnnotatedString()
+            }
+            Text(
+                text = annotated,
+                modifier = Modifier.padding(12.dp),
+                color = textColor,
+                fontSize = 16.sp,
+            )
+        }
     }
 }
 
@@ -109,15 +175,20 @@ private fun PromptBar(
     onSend: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
             value = prompt,
             onValueChange = onPromptChange,
-            modifier = Modifier.weight(1f).padding(end = 8.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp),
             label = { Text(stringResource(R.string.enter_your_prompt_here)) },
-            minLines = 3,
+            minLines = 1,
+            maxLines = 4,
             enabled = enabled,
             isError = promptError != null,
             supportingText = promptError?.let {
@@ -130,17 +201,5 @@ private fun PromptBar(
                 contentDescription = stringResource(R.string.send),
             )
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ChatScreenPreview() {
-    GeminiApiComposeStarterTheme {
-        ChatScreen(
-            state = ChatUiState(response = "**Hello** from Gemini."),
-            onPromptChange = {},
-            onSend = {},
-        )
     }
 }

@@ -8,14 +8,23 @@ private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val keyProvider: suspend () -> String,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    @Volatile
+    private var model: GenerativeModel? = null
+
+    private suspend fun getModel(): GenerativeModel {
+        model?.let { return it }
+        val apiKey = keyProvider()
+        val created = GenerativeModel(modelName = modelName, apiKey = apiKey)
+        model = created
+        return created
+    }
 
     override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
+        val response = getModel().generateContent(prompt)
         val text = response.text?.takeIf { it.isNotBlank() }
         if (text != null) {
             Result.success(text)

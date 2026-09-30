@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 
 class ChatViewModel(
     private val repository: GeminiRepository,
@@ -17,6 +18,8 @@ class ChatViewModel(
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private val nextId = AtomicLong(0L)
 
     fun onPromptChange(value: String) {
         _uiState.update { it.copy(prompt = value, promptError = null) }
@@ -34,11 +37,36 @@ class ChatViewModel(
         }
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        val userMessage = ChatMessage(
+            id = nextId.incrementAndGet(),
+            text = prompt,
+            isUser = true,
+        )
+
+        _uiState.update {
+            it.copy(
+                messages = it.messages + userMessage,
+                prompt = "",
+                isLoading = true,
+                errorMessage = null,
+                promptError = null,
+            )
+        }
+
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    val reply = ChatMessage(
+                        id = nextId.incrementAndGet(),
+                        text = text,
+                        isUser = false,
+                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            messages = it.messages + reply,
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
