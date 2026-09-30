@@ -1,7 +1,12 @@
 <resources>
     <string name="app_name">GeminiApiComposeStarter</string>
+    <string name="app_title">Gemini Chat</string>
     <string name="enter_your_prompt_here">Enter your prompt here</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
+    <string name="response_placeholder">Ask Gemini anything to start a conversation</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speak_now">Speak now…</string>
+    <string name="clear_chat">Clear chat</string>
+    <string name="toggle_theme">Toggle theme</string>
 </resources>
