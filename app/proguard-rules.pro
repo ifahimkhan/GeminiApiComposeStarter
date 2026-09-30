@@ -19,3 +19,21 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Google Generative AI SDK
+-keep class com.google.ai.client.generativeai.** { *; }
+
+# Serialization annotations for AI client data models
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+# Android Keystore and Security Crypto
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+
+# Suppress warnings for compile-time annotations used in Tink / Security Crypto
+-dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
+-dontwarn com.google.errorprone.annotations.CheckReturnValue
+-dontwarn com.google.errorprone.annotations.Immutable
+-dontwarn com.google.errorprone.annotations.RestrictedApi
+
