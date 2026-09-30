@@ -3,14 +3,22 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
-// Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
+// Read the Gemini API key from local.properties (git-ignored) or environment variables.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")
+    ?.trim()
+    ?.ifEmpty { null }
+    ?: System.getenv("GEMINI_API_KEY")?.trim().orEmpty()
+
+ksp {
+    arg("room.generateKotlin", "true")
+}
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -36,7 +44,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -63,6 +72,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     implementation(libs.google.generativeai)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

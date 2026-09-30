@@ -1,6 +1,5 @@
 package com.fahim.geminiApiComposeStarter.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -12,32 +11,64 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = IndigoPurplePrimaryDark,
+    onPrimary = IndigoPurpleOnPrimaryDark,
+    primaryContainer = IndigoPurplePrimaryContainerDark,
+    onPrimaryContainer = IndigoPurpleOnPrimaryContainerDark,
+    secondary = IndigoPurpleSecondaryDark,
+    onSecondary = IndigoPurpleOnSecondaryDark,
+    secondaryContainer = IndigoPurpleSecondaryContainerDark,
+    onSecondaryContainer = IndigoPurpleOnSecondaryContainerDark,
+    tertiary = IndigoPurpleTertiaryDark,
+    onTertiary = IndigoPurpleOnTertiaryDark,
+    surface = IndigoPurpleSurfaceDark,
+    onSurface = IndigoPurpleOnSurfaceDark,
+    surfaceVariant = IndigoPurpleSurfaceVariantDark,
+    onSurfaceVariant = IndigoPurpleOnSurfaceVariantDark,
+    surfaceContainer = IndigoPurpleSurfaceContainerDark,
+    surfaceContainerLow = IndigoPurpleSurfaceContainerLowDark,
+    surfaceContainerHigh = IndigoPurpleSurfaceContainerHighDark,
+    outline = IndigoPurpleOutlineDark,
+    outlineVariant = IndigoPurpleOutlineVariantDark,
+    error = IndigoPurpleErrorDark,
+    errorContainer = IndigoPurpleErrorContainerDark,
+    onErrorContainer = IndigoPurpleOnErrorContainerDark,
+    background = IndigoPurpleSurfaceDark,
+    onBackground = IndigoPurpleOnSurfaceDark,
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    primary = IndigoPurplePrimaryLight,
+    onPrimary = IndigoPurpleOnPrimaryLight,
+    primaryContainer = IndigoPurplePrimaryContainerLight,
+    onPrimaryContainer = IndigoPurpleOnPrimaryContainerLight,
+    secondary = IndigoPurpleSecondaryLight,
+    onSecondary = IndigoPurpleOnSecondaryLight,
+    secondaryContainer = IndigoPurpleSecondaryContainerLight,
+    onSecondaryContainer = IndigoPurpleOnSecondaryContainerLight,
+    tertiary = IndigoPurpleTertiaryLight,
+    onTertiary = IndigoPurpleOnTertiaryLight,
+    surface = IndigoPurpleSurfaceLight,
+    onSurface = IndigoPurpleOnSurfaceLight,
+    surfaceVariant = IndigoPurpleSurfaceVariantLight,
+    onSurfaceVariant = IndigoPurpleOnSurfaceVariantLight,
+    surfaceContainer = IndigoPurpleSurfaceContainerLight,
+    surfaceContainerLow = IndigoPurpleSurfaceContainerLowLight,
+    surfaceContainerHigh = IndigoPurpleSurfaceContainerHighLight,
+    outline = IndigoPurpleOutlineLight,
+    outlineVariant = IndigoPurpleOutlineVariantLight,
+    error = IndigoPurpleErrorLight,
+    errorContainer = IndigoPurpleErrorContainerLight,
+    onErrorContainer = IndigoPurpleOnErrorContainerLight,
+    background = IndigoPurpleSurfaceLight,
+    onBackground = IndigoPurpleOnSurfaceLight,
 )
 
 @Composable
 fun GeminiApiComposeStarterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Default to false so our purple/indigo design remains consistent across devices
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -45,7 +76,6 @@ fun GeminiApiComposeStarterTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }

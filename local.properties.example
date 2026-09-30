@@ -1,0 +1,12 @@
+## Gemini API Compose Starter - Local Configuration Template
+##
+## Copy this file or add the following line to your `local.properties` file:
+##
+##   GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
+##
+## Note:
+## - Never commit `local.properties` to version control (it is ignored by .gitignore).
+## - Alternatively, you can set the `GEMINI_API_KEY` environment variable in your shell or CI/CD environment.
+## - The application gracefully handles a missing API key without crashing.
+
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE

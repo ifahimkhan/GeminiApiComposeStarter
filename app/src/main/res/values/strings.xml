@@ -1,7 +1,68 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
+    <string name="app_name">Gemini Assistant</string>
     <string name="enter_your_prompt_here">Enter your prompt here</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+
+    <!-- Top App Bar -->
+    <string name="gemini_assistant">Gemini Assistant</string>
+    <string name="ai_assistant">AI Assistant</string>
+    <string name="open_drawer">Open navigation drawer</string>
+    <string name="user_avatar">User avatar</string>
+
+    <!-- Empty Chat State -->
+    <string name="hello_from_gemini">Hello from Gemini</string>
+    <string name="how_can_i_help">How can I help you today?</string>
+    <string name="suggestion_summarize">Summarize notes</string>
+    <string name="suggestion_explain">Explain a concept</string>
+    <string name="suggestion_email">Draft an email</string>
+    <string name="suggestion_code">Help me code</string>
+
+    <!-- Chat & Input -->
+    <string name="ask_gemini_anything">Ask Gemini anything…</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speak_now">Speak to Gemini…</string>
+    <string name="microphone_permission_required">Microphone permission is required for voice input</string>
+    <string name="speech_not_available">Speech recognition is not available on this device</string>
+    <string name="speech_recognition_error">Could not recognize speech. Please try again.</string>
+    <string name="gemini_thinking">Gemini is thinking…</string>
+    <string name="copy">Copy</string>
+    <string name="regenerate">Regenerate</string>
+    <string name="more">More</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="share">Share</string>
+
+    <!-- Error State -->
+    <string name="error_title">Couldn\'t generate a response</string>
+    <string name="error_subtitle">Check your connection and try again.</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="retry">Retry</string>
+
+    <!-- Navigation Drawer -->
+    <string name="new_chat">New Chat</string>
+    <string name="recent_chats">Recent Chats</string>
+    <string name="recent_chat_1">Database normalization</string>
+    <string name="recent_chat_2">Python interview questions</string>
+    <string name="recent_chat_3">Android development help</string>
+
+    <!-- Settings Screen -->
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="appearance">Appearance</string>
+    <string name="dark_theme">Dark theme</string>
+    <string name="dark_theme_desc">Use dark theme across the app</string>
+    <string name="chat_history">Chat History</string>
+    <string name="save_history">Save conversation history</string>
+    <string name="save_history_desc">Store conversation messages on this device</string>
+    <string name="clear_history">Clear conversation history</string>
+    <string name="clear_history_desc">Delete all messages from this session</string>
+    <string name="history_cleared">Conversation history cleared</string>
+    <string name="input_and_voice">Input &amp; Voice</string>
+    <string name="speech_language">Speech-to-text language</string>
+    <string name="speech_language_val">English (United States)</string>
+    <string name="about">About</string>
+    <string name="app_version">App version</string>
+    <string name="app_version_val">1.0.0</string>
+    <string name="built_with_info">Built with Kotlin + Jetpack Compose + Material 3</string>
 </resources>
