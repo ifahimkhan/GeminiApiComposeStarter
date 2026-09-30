@@ -5,6 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
 import com.fahim.geminiApiComposeStarter.data.RoomChatHistoryRepository
 import com.fahim.geminiApiComposeStarter.data.local.AppDatabase
@@ -32,8 +37,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            GeminiApiComposeStarterTheme {
-                ChatRoute(viewModel = viewModel)
+            val systemInDarkTheme = isSystemInDarkTheme()
+            var userDarkThemeOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
+            val isDarkTheme = userDarkThemeOverride ?: systemInDarkTheme
+
+            GeminiApiComposeStarterTheme(darkTheme = isDarkTheme) {
+                ChatRoute(
+                    viewModel = viewModel,
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = {
+                        userDarkThemeOverride = !isDarkTheme
+                    },
+                )
             }
         }
     }

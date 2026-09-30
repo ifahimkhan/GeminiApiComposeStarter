@@ -56,7 +56,11 @@ import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
 @Composable
-fun ChatRoute(viewModel: ChatViewModel) {
+fun ChatRoute(
+    viewModel: ChatViewModel,
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {},
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val speechUnavailableMessage = stringResource(R.string.speech_not_available)
@@ -79,6 +83,8 @@ fun ChatRoute(viewModel: ChatViewModel) {
         onPromptChange = viewModel::onPromptChange,
         onSend = viewModel::onSend,
         onClearChat = viewModel::onClearChat,
+        isDarkTheme = isDarkTheme,
+        onToggleTheme = onToggleTheme,
         onVoiceInput = {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(
@@ -108,6 +114,8 @@ fun ChatScreen(
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
     onClearChat: () -> Unit = {},
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {},
     onVoiceInput: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -130,6 +138,16 @@ fun ChatScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    IconButton(onClick = onToggleTheme) {
+                        Icon(
+                            painter = painterResource(
+                                if (isDarkTheme) R.drawable.ic_light_mode else R.drawable.ic_dark_mode
+                            ),
+                            contentDescription = stringResource(
+                                if (isDarkTheme) R.string.switch_to_light_mode else R.string.switch_to_dark_mode
+                            ),
+                        )
+                    }
                     if (state.messages.isNotEmpty()) {
                         IconButton(onClick = onClearChat) {
                             Icon(
