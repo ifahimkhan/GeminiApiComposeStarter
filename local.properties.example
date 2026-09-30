@@ -1,0 +1,3 @@
+# Copy this file to local.properties (same folder) and put your real key there.
+# local.properties is git-ignored - never commit it.
+GEMINI_API_KEY=your_api_key_here

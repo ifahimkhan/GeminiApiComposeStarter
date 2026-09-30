@@ -19,3 +19,8 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# ---- Gemini SDK (uses Ktor + kotlinx.serialization under the hood) ----
+-keep class com.google.ai.client.generativeai.** { *; }
+-keepattributes *Annotation*, InnerClasses, Signature
+-dontwarn org.slf4j.**
+-dontwarn java.lang.management.**
