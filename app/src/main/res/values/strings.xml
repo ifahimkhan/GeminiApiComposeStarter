@@ -1,7 +1,29 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">Gemini AI Chat</string>
+    <string name="enter_your_prompt_here">Ask Gemini anything...</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="speak_now">Speak now...</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_not_supported">Voice recognition is not supported on this device.</string>
+    <string name="gemini_thinking">Gemini is thinking...</string>
+    <string name="new_chat">New Chat</string>
+    <string name="chat_history">Chat History</string>
+    <string name="theme_selection">Theme selection</string>
+    <string name="clear_chat">Delete conversation</string>
+    <string name="start_new_chat_title">Start a new chat?</string>
+    <string name="start_new_chat_desc">Your current conversation will be saved to chat history.</string>
+    <string name="delete_chat_title">Delete conversation?</string>
+    <string name="delete_chat_desc">Are you sure you want to delete this conversation? This action cannot be undone.</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="close">Close</string>
+    <string name="retry">Retry</string>
+    <string name="copy_message">Copy message</string>
+    <string name="no_previous_chats">No previous conversations found.</string>
+    <string name="theme_title">Theme</string>
+    <string name="theme_system">System default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="how_can_i_help">How can I help you today?</string>
+    <string name="choose_suggestion">Choose a suggestion below or type your prompt to start.</string>
 </resources>
