@@ -1,12 +1,20 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
-/** Immutable UI state for the single-screen prompt/response flow. */
+data class ChatMessage(
+    val id: Long,
+    val text: String,
+    val isUser: Boolean,
+)
+
 data class ChatUiState(
+    val messages: List<ChatMessage> = emptyList(),
     val prompt: String = "",
-    val response: String = "",
     val isLoading: Boolean = false,
     val promptError: PromptError? = null,
     val errorMessage: String? = null,
+    val darkMode: Boolean? = null,
 )
 
-enum class PromptError { EMPTY }
+enum class PromptError {
+    EMPTY
+}
