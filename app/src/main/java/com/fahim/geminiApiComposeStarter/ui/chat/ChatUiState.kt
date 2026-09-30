@@ -7,6 +7,11 @@ data class ChatUiState(
     val isLoading: Boolean = false,
     val promptError: PromptError? = null,
     val errorMessage: String? = null,
+    val isApiKeyConfigured: Boolean = false,
+    val showApiKeyDialog: Boolean = false,
 )
 
-enum class PromptError { EMPTY }
+enum class PromptError {
+    EMPTY,
+    TOO_LONG,
+}

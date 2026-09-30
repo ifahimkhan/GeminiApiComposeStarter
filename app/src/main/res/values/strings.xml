@@ -4,4 +4,14 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="field_too_long">Prompt exceeds maximum limit of %1$d characters</string>
+    <string name="api_key_settings">API Key Settings</string>
+    <string name="api_key_dialog_title">Gemini API Key</string>
+    <string name="api_key_dialog_description">Enter your Gemini API key. It is stored securely on your device using hardware-backed encrypted storage.</string>
+    <string name="api_key_input_hint">Enter API key</string>
+    <string name="save">Save</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="api_key_configured">API key configured</string>
+    <string name="api_key_not_configured">No API key set</string>
 </resources>
