@@ -1,0 +1,7 @@
+## This file must NOT be checked into Version Control Systems.
+#
+# Obtain your Gemini API Key from Google AI Studio:
+# https://aistudio.google.com/
+#
+# Copy this file to `local.properties` and replace the placeholder below with your key:
+GEMINI_API_KEY=your_gemini_api_key_here
