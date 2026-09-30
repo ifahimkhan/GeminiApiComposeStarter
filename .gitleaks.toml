@@ -1,0 +1,45 @@
+title = "Gitleaks configuration"
+
+# Extend the gitleaks default ruleset so all built-in detectors run in addition to the custom rules below.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore generated build artifacts and local properties"
+paths = [
+    '''[/\\]build[/\\]''',
+    '''[/\\]\.gradle[/\\]''',
+    '''local\.properties$''',
+]
+
+[[rules]]
+id = "google-api-key"
+description = "Google API Key (AIza)"
+regex = '''AIza[0-9A-Za-z\-_]{35}'''
+keywords = ["AIza"]
+
+    [rules.allowlist]
+    # Allow the placeholder value used in local.properties.example and README
+    regexes = ['''AIza[Xx]{35}''', '''YOUR_API_KEY_HERE''']
+
+[[rules]]
+id = "gemini-api-key-aq"
+description = "Gemini API Key (AQ style)"
+regex = '''AQ\.[0-9A-Za-z\-_]{20,}'''
+keywords = ["AQ."]
+
+[[rules]]
+id = "gemini-api-key-assignment"
+description = "GEMINI_API_KEY assignment with a real key value"
+# RE2 has no lookahead — use a character-class allowlist instead.
+# Matches:  GEMINI_API_KEY = "SomeRealKey"
+# Does NOT match: GEMINI_API_KEY=YOUR_API_KEY_HERE  (caught by allowlist below)
+regex = '''(?i)GEMINI_API_KEY\s*[:=]\s*["']?[A-Za-z0-9_\-\.]{15,}["']?'''
+keywords = ["GEMINI_API_KEY"]
+
+    [rules.allowlist]
+    # Exclude the placeholder and empty/blank values used in example files and documentation
+    regexes = [
+        '''(?i)GEMINI_API_KEY\s*[:=]\s*["']?YOUR_API_KEY_HERE["']?''',
+        '''(?i)GEMINI_API_KEY\s*[:=]\s*["']?\s*["']?''',
+    ]

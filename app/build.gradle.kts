@@ -3,14 +3,20 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
-// Read the Gemini API key from local.properties (git-ignored) so it never lands in VCS.
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+// Read the Gemini API key from local.properties (git-ignored) or environment variable so it never lands in VCS.
+val geminiApiKey: String = run {
+    val keyFromProps = rootProject.file("local.properties").takeIf { it.exists() }?.let { file ->
+        Properties().apply {
+            file.inputStream().use { load(it) }
+        }.getProperty("GEMINI_API_KEY")?.trim()
+    }
+    keyFromProps?.ifBlank { null }
+        ?: System.getenv("GEMINI_API_KEY")?.trim()
+        ?: ""
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
@@ -36,7 +42,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            // Use debug signing for assignment submission & local QA testing so the minified
+            // APK can be installed via adb without requiring an external private production keystore.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -51,6 +60,17 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        // Return default values (0/null) for unmocked Android platform static calls (specifically android.util.Log)
+        // during JVM unit tests, preventing RuntimeException("Method in android.util.Log not mocked").
+        // Tests assert real domain types and StateFlow values directly and do not rely on vacuous defaults.
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+ksp {
+    arg("room.generateKotlin", "true")
 }
 
 dependencies {
@@ -62,7 +82,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material3.window.size)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     implementation(libs.google.generativeai)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
