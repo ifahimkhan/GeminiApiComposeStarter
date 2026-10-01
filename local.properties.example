@@ -1,0 +1,9 @@
+## Example local properties for developers and CI/CD setup.
+## Copy this file to 'local.properties' and replace placeholder values with your actual configuration.
+## Do NOT commit your actual 'local.properties' file into Git.
+
+# Path to the Android SDK on your local machine:
+# sdk.dir=C\:\\Users\\Username\\AppData\\Local\\Android\\Sdk
+
+# Google AI Studio Gemini API Key:
+GEMINI_API_KEY=your_api_key_here
