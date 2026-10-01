@@ -5,17 +5,17 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Room
+-keep class androidx.room.** { *; }
+-dontwarn androidx.room.**
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Gemini AI Client
+-keep class com.google.ai.client.generativeai.** { *; }
+-dontwarn com.google.ai.client.generativeai.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# DataStore
+-keep class androidx.datastore.** { *; }
+
+# App Models and Entities
+-keep class com.fahim.geminiApiComposeStarter.model.** { *; }
+-keep class com.fahim.geminiApiComposeStarter.data.local.** { *; }

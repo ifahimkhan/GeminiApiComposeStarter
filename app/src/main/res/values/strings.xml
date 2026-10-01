@@ -4,4 +4,11 @@
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_not_supported">Speech recognition is not supported on this device.</string>
+    <string name="clear_history">Clear Chat History</string>
+    <string name="select_model">Select Model</string>
+    <string name="user_label">You</string>
+    <string name="gemini_label">Gemini</string>
+    <string name="welcome_message">Hello! Ask me anything or tap the microphone to speak.</string>
 </resources>
