@@ -16,6 +16,9 @@ android {
     namespace = "com.fahim.geminiApiComposeStarter"
     compileSdk {
         version = release(36)
+        buildFeatures {
+            buildConfig = true
+        }
     }
 
     defaultConfig {
