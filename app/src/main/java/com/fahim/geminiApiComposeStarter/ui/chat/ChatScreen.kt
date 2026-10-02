@@ -242,7 +242,7 @@ private fun PromptBar(
                 .padding(end = 8.dp),
 
             label = {
-                Text("Enter your prompt here")
+                Text("Ask Gemini anything...")
             },
 
             minLines = 3,
