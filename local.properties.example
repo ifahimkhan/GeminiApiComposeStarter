@@ -1,0 +1,8 @@
+## This file contains example settings for local.properties.
+## Copy this file to local.properties and replace the placeholders with your actual keys and paths.
+
+# Android SDK directory (typically C\:\\Users\\<Username>\\AppData\\Local\\Android\\Sdk on Windows or /Users/<username>/Library/Android/sdk on macOS)
+sdk.dir=C\:\\Users\\Ranish\\AppData\\Local\\Android\\Sdk
+
+# Google Gemini API Key from Google AI Studio (https://aistudio.google.com/)
+GEMINI_API_KEY=your_key_here
