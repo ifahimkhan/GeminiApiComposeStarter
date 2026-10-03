@@ -9,12 +9,23 @@ import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import com.fahim.geminiApiComposeStarter.data.security.ApiKeyManager
 
 class MainActivity : ComponentActivity() {
 
+    private val apiKeyManager by lazy {
+        ApiKeyManager(applicationContext)
+    }
+
     private val viewModel: ChatViewModel by viewModels {
+        if (apiKeyManager.getApiKey().isBlank()) {
+            apiKeyManager.storeApiKey(BuildConfig.GEMINI_API_KEY)
+        }
+
         ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = BuildConfig.GEMINI_API_KEY),
+            repository = GeminiRepositoryImpl(
+                apiKeyManager = apiKeyManager
+            ),
             hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
         )
     }

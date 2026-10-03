@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +37,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fahim.geminiApiComposeStarter.R
 import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+
 
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
@@ -53,11 +65,23 @@ fun ChatScreen(
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
 ) {
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+
+            if (!spokenText.isNullOrBlank()) {
+                onPromptChange(spokenText)
+            }
+        }
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
-
     Scaffold(
         modifier = Modifier.fillMaxSize().imePadding(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -65,7 +89,7 @@ fun ChatScreen(
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 ResponseArea(
-                    text = state.response.ifEmpty { stringResource(R.string.response_placeholder) },
+                    messages = state.messages,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
                 PromptBar(
@@ -74,6 +98,16 @@ fun ChatScreen(
                     enabled = !state.isLoading,
                     onPromptChange = onPromptChange,
                     onSend = onSend,
+                    onVoice = {
+                        voiceLauncher.launch(
+                            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(
+                                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                )
+                            }
+                        )
+                    },
                 )
             }
             if (state.isLoading) {
@@ -84,19 +118,46 @@ fun ChatScreen(
 }
 
 @Composable
-private fun ResponseArea(text: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.verticalScroll(rememberScrollState())) {
-        Icon(
-            painter = painterResource(R.drawable.ic_assistant),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = text.toBoldAnnotatedString(),
-            fontSize = 18.sp,
-            modifier = Modifier.padding(8.dp),
-        )
+private fun ResponseArea(
+    messages: List<ChatMessage>,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
+
+    LazyColumn(
+        modifier = modifier,
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(vertical = 8.dp)
+    ) {
+        items(
+            items = messages,
+            key = { message -> message.id }
+        ) { message ->
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (message.isUser) {
+                    Arrangement.End
+                } else {
+                    Arrangement.Start
+                }
+            ) {
+                Text(
+                    text = message.text,
+                    fontSize = 16.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                )
+            }
+        }
     }
 }
 
@@ -107,7 +168,9 @@ private fun PromptBar(
     enabled: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoice: () -> Unit,
 ) {
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -124,6 +187,12 @@ private fun PromptBar(
                 { Text(stringResource(R.string.field_cannot_be_empty)) }
             },
         )
+        TextButton(
+            onClick = onVoice,
+            enabled = enabled
+        ) {
+            Text("🎤")
+        }
         FilledIconButton(onClick = onSend, enabled = enabled) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
@@ -138,7 +207,15 @@ private fun PromptBar(
 private fun ChatScreenPreview() {
     GeminiApiComposeStarterTheme {
         ChatScreen(
-            state = ChatUiState(response = "**Hello** from Gemini."),
+            state = ChatUiState(
+                messages = listOf(
+                    ChatMessage(
+                        id = 1L,
+                        isUser = false,
+                        text = "**Hello** from Gemini."
+                    )
+                )
+            ),
             onPromptChange = {},
             onSend = {},
         )

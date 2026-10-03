@@ -24,30 +24,63 @@ class ChatViewModel(
 
     fun onSend() {
         val prompt = _uiState.value.prompt.trim()
+
         if (prompt.isEmpty()) {
-            _uiState.update { it.copy(promptError = PromptError.EMPTY) }
+            _uiState.update {
+                it.copy(promptError = PromptError.EMPTY)
+            }
             return
         }
+
         if (!hasApiKey) {
-            _uiState.update { it.copy(errorMessage = MISSING_API_KEY_MESSAGE) }
+            _uiState.update {
+                it.copy(errorMessage = MISSING_API_KEY_MESSAGE)
+            }
             return
         }
+
         if (_uiState.value.isLoading) return
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null, promptError = null) }
+        val userMessage = ChatMessage(
+            id = System.currentTimeMillis(),
+            isUser = true,
+            text = prompt
+        )
+
+        _uiState.update {
+            it.copy(
+                messages = it.messages + userMessage,
+                prompt = "",
+                isLoading = true,
+                errorMessage = null,
+                promptError = null
+            )
+        }
+
         viewModelScope.launch {
             repository.generateText(prompt).fold(
                 onSuccess = { text ->
-                    _uiState.update { it.copy(isLoading = false, response = text) }
+                    val geminiMessage = ChatMessage(
+                        id = System.currentTimeMillis(),
+                        isUser = false,
+                        text = text
+                    )
+
+                    _uiState.update {
+                        it.copy(
+                            messages = it.messages + geminiMessage,
+                            isLoading = false
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Something went wrong",
+                            errorMessage = error.message ?: "Something went wrong"
                         )
                     }
-                },
+                }
             )
         }
     }
