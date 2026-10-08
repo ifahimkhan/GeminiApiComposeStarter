@@ -19,6 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "GeminiApiComposeStarter"
+rootProject.name = "N149-GeminiChat"
 include(":app")
- 

@@ -1,15 +1,31 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+# .gitignore for N149-GeminiChat Android project
+
+# Local configuration — NEVER commit these
 local.properties
+*.keystore
+*.jks
+
+# Build outputs
+build/
+app/build/
+.gradle/
+
+# IDE files
+.idea/
+*.iml
+*.iws
+.DS_Store
+
+# Android Studio local files
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# Kotlin Gradle cache
+kotlin/
+
+# Logs and scratch dumps
+*.log
+*.bin
+build_output.txt

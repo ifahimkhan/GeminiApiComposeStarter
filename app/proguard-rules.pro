@@ -1,21 +1,19 @@
 # Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep Gemini SDK classes
+-keep class com.google.ai.client.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep Room entities
+-keep class com.n149.geminichat.data.MessageEntity { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep Hilt-generated classes
+-keep class dagger.hilt.** { *; }
+-keep class **_HiltComponents { *; }
+-keep @dagger.hilt.android.HiltAndroidApp class * { *; }
+-keep @dagger.hilt.android.AndroidEntryPoint class * { *; }
+
+# Keep DataStore generated serialisers
+-keep class androidx.datastore.** { *; }
+
+# Keep BuildConfig (needed at runtime, but key value is obfuscated by R8)
+-keep class com.n149.geminichat.BuildConfig { *; }

@@ -1,7 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
-    <string name="enter_your_prompt_here">Enter your prompt here</string>
+    <string name="app_name">N149 Gemini Chat</string>
+    <string name="input_hint">Ask Gemini anything…</string>
     <string name="send">Send</string>
-    <string name="response_placeholder">Response will be displayed here!</string>
-    <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_no_key">API key not configured. Add GEMINI_API_KEY to local.properties.</string>
 </resources>
