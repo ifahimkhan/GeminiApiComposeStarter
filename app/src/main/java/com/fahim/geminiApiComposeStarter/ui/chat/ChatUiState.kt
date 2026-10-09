@@ -1,12 +1,20 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
-/** Immutable UI state for the single-screen prompt/response flow. */
-data class ChatUiState(
-    val prompt: String = "",
-    val response: String = "",
-    val isLoading: Boolean = false,
-    val promptError: PromptError? = null,
-    val errorMessage: String? = null,
-)
+import androidx.compose.runtime.Immutable
+import com.fahim.geminiApiComposeStarter.data.ChatMessage
+import com.fahim.geminiApiComposeStarter.data.AppPreferences
 
-enum class PromptError { EMPTY }
+/** Single source of truth for everything the chat screen renders. */
+@Immutable
+data class ChatUiState(
+    val messages: List<ChatMessage> = emptyList(),
+    val input: String = "",
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    /** Prompt that failed, so the user can retry it. Null for non-retryable errors. */
+    val failedPrompt: String? = null,
+    val settings: AppPreferences = AppPreferences(),
+    val isSettingsOpen: Boolean = false,
+) {
+    val canSend: Boolean get() = input.isNotBlank() && !isLoading
+}

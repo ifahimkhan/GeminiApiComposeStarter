@@ -1,0 +1,22 @@
+#!/bin/sh
+# Install:  cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+# 1. Never allow local.properties to be committed.
+if git diff --cached --name-only | grep -qE '(^|/)local\.properties$'; then
+  echo "ERROR: local.properties is staged. Run: git restore --staged local.properties"
+  exit 1
+fi
+
+# 2. Block anything that looks like a Google API key (they start with "AIza").
+if git diff --cached -U0 | grep -E '^\+' | grep -qE 'AIza[0-9A-Za-z_-]{35}'; then
+  echo "ERROR: A Google API key appears in the staged changes. Remove it before committing."
+  exit 1
+fi
+
+# 3. Full secret scan if gitleaks is installed (https://github.com/gitleaks/gitleaks).
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --verbose || exit 1
+else
+  echo "note: gitleaks not installed - skipped full secret scan"
+fi
+exit 0
