@@ -5,26 +5,45 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.fahim.geminiApiComposeStarter.data.GeminiRepositoryImpl
-import com.fahim.geminiApiComposeStarter.ui.chat.ChatRoute
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fahim.geminiApiComposeStarter.ui.chat.ChatScreen
 import com.fahim.geminiApiComposeStarter.ui.chat.ChatViewModel
-import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
+import com.fahim.geminiApiComposeStarter.ui.theme.GeminiTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: ChatViewModel by viewModels {
-        ChatViewModel.factory(
-            repository = GeminiRepositoryImpl(apiKey = BuildConfig.GEMINI_API_KEY),
-            hasApiKey = BuildConfig.GEMINI_API_KEY.isNotBlank(),
-        )
-    }
+    private val viewModel: ChatViewModel by viewModels { ChatViewModel.Factory }
 
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            GeminiApiComposeStarterTheme {
-                ChatRoute(viewModel = viewModel)
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val windowSizeClass = calculateWindowSizeClass(this)
+
+            GeminiTheme(
+                themeMode = uiState.settings.themeMode,
+                dynamicColor = uiState.settings.dynamicColor,
+            ) {
+                ChatScreen(
+                    uiState = uiState,
+                    widthSizeClass = windowSizeClass.widthSizeClass,
+                    onInputChange = viewModel::onInputChange,
+                    onSend = viewModel::sendMessage,
+                    onSuggestionClick = viewModel::useSuggestion,
+                    onVoiceResult = viewModel::onVoiceResult,
+                    onVoiceUnavailable = viewModel::onVoiceUnavailable,
+                    onRetry = viewModel::retry,
+                    onDismissError = viewModel::dismissError,
+                    onClearHistory = viewModel::clearHistory,
+                    onSettingsOpenChange = viewModel::setSettingsOpen,
+                    onThemeModeChange = viewModel::setThemeMode,
+                    onDynamicColorChange = viewModel::setDynamicColor,
+                )
             }
         }
     }
