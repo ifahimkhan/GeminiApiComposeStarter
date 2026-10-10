@@ -1,12 +1,26 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
-/** Immutable UI state for the single-screen prompt/response flow. */
-data class ChatUiState(
-    val prompt: String = "",
-    val response: String = "",
+import androidx.compose.runtime.Immutable
+
+/** A single chat message in the PITWALL conversation. */
+@Immutable
+data class ChatMessage(
+    val id: Long = System.nanoTime(),
+    val sender: String, // "DRIVER" or "PITWALL"
+    val text: String,
+    val timestamp: String,
     val isLoading: Boolean = false,
-    val promptError: PromptError? = null,
+    val isError: Boolean = false
+)
+
+/** Immutable UI state for the PITWALL chat screen. */
+@Immutable
+data class ChatUiState(
+    val messages: List<ChatMessage> = emptyList(),
+    val prompt: String = "",
+    val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val promptError: PromptError? = null,
 )
 
 enum class PromptError { EMPTY }
