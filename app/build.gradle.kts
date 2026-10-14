@@ -10,7 +10,10 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim().orEmpty()
+val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")
+    ?.trim()
+    ?.takeIf { it.isNotEmpty() }
+    ?: System.getenv("GEMINI_API_KEY").orEmpty()
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"

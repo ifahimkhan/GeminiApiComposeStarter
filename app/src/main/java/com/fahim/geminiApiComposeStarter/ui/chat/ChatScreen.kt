@@ -1,20 +1,24 @@
 package com.fahim.geminiApiComposeStarter.ui.chat
 
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -27,23 +31,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fahim.geminiApiComposeStarter.R
-import com.fahim.geminiApiComposeStarter.ui.text.toBoldAnnotatedString
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fahim.geminiApiComposeStarter.ui.theme.GeminiApiComposeStarterTheme
 
 @Composable
-fun ChatRoute(viewModel: ChatViewModel) {
+fun ChatRoute(viewModel: ChatViewModel = viewModel()) {
+
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
     ChatScreen(
         state = state,
         onPromptChange = viewModel::onPromptChange,
-        onSend = viewModel::onSend,
+        onSend = viewModel::onSend
     )
 }
 
@@ -51,55 +54,168 @@ fun ChatRoute(viewModel: ChatViewModel) {
 fun ChatScreen(
     state: ChatUiState,
     onPromptChange: (String) -> Unit,
-    onSend: () -> Unit,
+    onSend: () -> Unit
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
+
+    /*
+     * Voice input launcher.
+     * The spoken text is placed directly into the prompt box.
+     */
+    val voiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+
+        val spokenText = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+
+        if (!spokenText.isNullOrBlank()) {
+            onPromptChange(spokenText)
+        }
+    }
+
+    val snackbarHostState = remember {
+        SnackbarHostState()
+    }
+
     LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
+        state.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+        }
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize().imePadding(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        modifier = Modifier.fillMaxSize(),
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                ResponseArea(
-                    text = state.response.ifEmpty { stringResource(R.string.response_placeholder) },
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
-                PromptBar(
-                    prompt = state.prompt,
-                    promptError = state.promptError,
-                    enabled = !state.isLoading,
-                    onPromptChange = onPromptChange,
-                    onSend = onSend,
-                )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+        ) {
+
+            /*
+             * CHAT HISTORY
+             */
+            val listState = rememberLazyListState()
+
+            LaunchedEffect(state.messages.size) {
+                if (state.messages.isNotEmpty()) {
+                    listState.animateScrollToItem(
+                        state.messages.lastIndex
+                    )
+                }
             }
-            if (state.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                itemsIndexed(
+                    items = state.messages,
+                    key = { index, message ->
+                        "${message.isUser}-$index-${message.text.hashCode()}"
+                    }
+                ) { _, message ->
+
+                    Text(
+                        text = if (message.isUser) {
+                            "You: ${message.text}"
+                        } else {
+                            "🤖: ${message.text}"
+                        },
+                        fontSize = 16.sp,
+                        fontWeight = if (message.isUser) {
+                            FontWeight.Normal
+                        } else {
+                            FontWeight.Normal
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                /*
+                 * Show loading indicator while Gemini is responding.
+                 */
+                if (state.isLoading) {
+
+                    item {
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+
+                            Spacer(
+                                modifier = Modifier.size(8.dp)
+                            )
+
+                            Text(
+                                text = "Gemini is thinking..."
+                            )
+                        }
+                    }
+                }
             }
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            /*
+             * INPUT AREA
+             */
+            PromptBar(
+                prompt = state.prompt,
+                promptError = state.promptError,
+                enabled = !state.isLoading,
+                onPromptChange = onPromptChange,
+                onSend = onSend,
+                onVoiceInput = {
+
+                    val intent = Intent(
+                        RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                    ).apply {
+
+                        putExtra(
+                            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                        )
+
+                        putExtra(
+                            RecognizerIntent.EXTRA_PROMPT,
+                            "Speak your question"
+                        )
+                    }
+
+                    voiceLauncher.launch(intent)
+                }
+            )
         }
     }
 }
 
-@Composable
-private fun ResponseArea(text: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.verticalScroll(rememberScrollState())) {
-        Icon(
-            painter = painterResource(R.drawable.ic_assistant),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = text.toBoldAnnotatedString(),
-            fontSize = 18.sp,
-            modifier = Modifier.padding(8.dp),
-        )
-    }
-}
 
+/*
+ * Bottom prompt bar.
+ *
+ * IMPORTANT:
+ * The microphone and send buttons are placed inside
+ * a Column, so they can NEVER overlap.
+ */
 @Composable
 private fun PromptBar(
     prompt: String,
@@ -107,40 +223,92 @@ private fun PromptBar(
     enabled: Boolean,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onVoiceInput: () -> Unit
 ) {
+
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+
         OutlinedTextField(
             value = prompt,
             onValueChange = onPromptChange,
-            modifier = Modifier.weight(1f).padding(end = 8.dp),
-            label = { Text(stringResource(R.string.enter_your_prompt_here)) },
-            minLines = 3,
-            enabled = enabled,
-            isError = promptError != null,
-            supportingText = promptError?.let {
-                { Text(stringResource(R.string.field_cannot_be_empty)) }
+
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp),
+
+            label = {
+                Text("Ask Gemini anything...")
             },
+
+            minLines = 3,
+
+            enabled = enabled,
+
+            isError = promptError != null,
+
+            supportingText = promptError?.let {
+                {
+                    Text("Field cannot be empty")
+                }
+            }
         )
-        FilledIconButton(onClick = onSend, enabled = enabled) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = stringResource(R.string.send),
-            )
+
+        /*
+         * BUTTONS ARE VERTICAL.
+         */
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+
+            /*
+             * VOICE BUTTON
+             */
+            FilledIconButton(
+                onClick = onVoiceInput,
+                enabled = enabled
+            ) {
+                Text(
+                    text = "🎤",
+                    fontSize = 18.sp
+                )
+            }
+
+            /*
+             * SEND BUTTON
+             */
+            FilledIconButton(
+                onClick = onSend,
+                enabled = enabled
+            ) {
+                Text(
+                    text = "➤",
+                    fontSize = 18.sp
+                )
+            }
         }
     }
 }
 
-@Preview(showBackground = true)
+
 @Composable
 private fun ChatScreenPreview() {
+
     GeminiApiComposeStarterTheme {
+
         ChatScreen(
-            state = ChatUiState(response = "**Hello** from Gemini."),
+            state = ChatUiState(
+                response = "",
+                prompt = "What is Android?",
+                messages = emptyList()
+            ),
             onPromptChange = {},
-            onSend = {},
+            onSend = {}
         )
     }
 }
