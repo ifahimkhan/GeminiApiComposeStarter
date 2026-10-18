@@ -8,14 +8,32 @@ private const val TAG = "GeminiRepository"
 private const val DEFAULT_MODEL = "gemini-3.6-flash"
 
 class GeminiRepositoryImpl(
-    apiKey: String,
-    modelName: String = DEFAULT_MODEL,
+    private val apiKeyProvider: () -> String?,
+    private val modelName: String = DEFAULT_MODEL,
 ) : GeminiRepository {
 
-    private val model = GenerativeModel(modelName = modelName, apiKey = apiKey)
+    /**
+     * Backward-compatible secondary constructor for tests or callers supplying a direct key.
+     */
+    constructor(apiKey: String, modelName: String = DEFAULT_MODEL) : this({ apiKey }, modelName)
+
+    /**
+     * Lazily initialized GenerativeModel. Decryption occurs only at the moment this model
+     * is created in memory. The decrypted key exists strictly in memory.
+     */
+    private val model: GenerativeModel? by lazy {
+        val key = apiKeyProvider()
+        if (!key.isNullOrBlank()) {
+            GenerativeModel(modelName = modelName, apiKey = key)
+        } else {
+            null
+        }
+    }
 
     override suspend fun generateText(prompt: String): Result<String> = try {
-        val response = model.generateContent(prompt)
+        val generativeModel = model
+            ?: return Result.failure(IllegalStateException("Gemini API key is missing or could not be decrypted."))
+        val response = generativeModel.generateContent(prompt)
         val text = response.text?.takeIf { it.isNotBlank() }
         if (text != null) {
             Result.success(text)
@@ -25,7 +43,7 @@ class GeminiRepositoryImpl(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Log.e(TAG, "generateContent failed", e)
+        Log.e(TAG, "generateContent failed: ${e.javaClass.simpleName}")
         Result.failure(e)
     }
 }

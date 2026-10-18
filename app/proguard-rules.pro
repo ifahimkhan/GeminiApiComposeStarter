@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Google Tink (used internally by androidx.security:security-crypto) references
+# compile-time ErrorProne annotations that are not included in runtime artifacts.
+-dontwarn com.google.errorprone.annotations.**
