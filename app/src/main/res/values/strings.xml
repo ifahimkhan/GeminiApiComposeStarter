@@ -1,7 +1,16 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
+    <string name="app_name">Gemini Chat</string>
     <string name="enter_your_prompt_here">Enter your prompt here</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="speech_not_available">Speech recognition is not available on this device</string>
+    <string name="toggle_theme">Toggle Theme</string>
+    <string name="clear_history">Clear History</string>
+    <string name="empty_conversation_title">Welcome to Gemini AI Chat</string>
+    <string name="empty_conversation_desc">Ask questions, brainstorm ideas, or speak your thoughts with voice input.</string>
+    <string name="gemini_thinking">Gemini is thinking…</string>
+    <string name="you">You</string>
+    <string name="gemini">Gemini</string>
 </resources>

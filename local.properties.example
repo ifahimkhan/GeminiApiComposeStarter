@@ -1,0 +1,9 @@
+## This is an example local.properties file.
+## Copy this file to local.properties and add your actual API key and SDK path.
+## DO NOT commit your actual local.properties to version control.
+
+# Location of your Android SDK:
+# sdk.dir=C\:\\Users\\username\\AppData\\Local\\Android\\Sdk
+
+# Gemini API Key obtained from Google AI Studio (https://aistudio.google.com/):
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
