@@ -21,4 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "GeminiApiComposeStarter"
 include(":app")
- 
