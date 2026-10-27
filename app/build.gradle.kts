@@ -14,9 +14,7 @@ val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY")?.trim()
 
 android {
     namespace = "com.fahim.geminiApiComposeStarter"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.fahim.geminiApiComposeStarter"
