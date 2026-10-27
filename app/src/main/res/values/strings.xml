@@ -1,7 +1,13 @@
 <resources>
-    <string name="app_name">GeminiApiComposeStarter</string>
+    <string name="app_name">Gemini Assistant</string>
     <string name="enter_your_prompt_here">Enter your prompt here</string>
     <string name="send">Send</string>
     <string name="response_placeholder">Response will be displayed here!</string>
     <string name="field_cannot_be_empty">Field cannot be empty</string>
+    <string name="voice_input">Voice input</string>
+    <string name="clear_conversation">Clear conversation</string>
+    <string name="retry_action">Retry</string>
+    <string name="sender_gemini">Gemini</string>
+    <string name="sender_you">You</string>
+    <string name="voice_prompt_hint">Listening for your prompt&#8230;</string>
 </resources>
